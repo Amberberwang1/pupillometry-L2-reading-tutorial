@@ -21,7 +21,9 @@ bins = pr.baseline(bins, window=(0, 200), method="subtractive")    # 3.3
 print(pr.low_baselines(bins, min_pct=60))
 trials = pr.trial_means(bins, window=(500, 20000))                 # 3.5: time-matched window
 whole = pr.trial_means(bins, window=(500, None))                   # whole trial, for comparison
-blinks = pr.event_response(samples, "blink")                       # blink-locked responses (Figure 2D)
-fig = pr.plot_grand_mean(bins, min_readers=1)                      # 3.6 (Figure 2B)
+blinks = pr.event_response(samples, "blink")                       # blink-locked responses (Figure 3D)
+fig = pr.plot_grand_mean(bins, min_readers=1)                      # 3.6 (Figure 3B)
 fig.savefig("grand_mean.png", dpi=150)
+fig = pr.plot_trial(samples, trial=1, xlim=(0, 10))                # one trial at four stages (Figure 2)
+fig.savefig("one_trial.png", dpi=150)
 pr.export_for_r(trials, bins, folder="for_R")                      # 3.7: trials.csv, bins.csv and the R scripts
