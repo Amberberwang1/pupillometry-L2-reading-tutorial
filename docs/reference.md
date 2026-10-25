@@ -1,4 +1,4 @@
-# pupilread 1.0.0rc1: function reference
+# pupilread 1.0.0: function reference
 
 Generated from the docstrings by `tools/make_reference.py`. Defaults are the paper's primary choices.
 
@@ -352,7 +352,7 @@ DataFrame
 
 ## 3.4 Gaze-position correction
 
-### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f28942ec2c0>) -> 'pd.DataFrame'`
+### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f257cf00400>) -> 'pd.DataFrame'`
 
 ```
 Measure the pupil step across every saccade between two retained fixations (stage 3.4).
