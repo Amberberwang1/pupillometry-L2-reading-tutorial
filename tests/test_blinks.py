@@ -31,6 +31,17 @@ def test_long_blinks_are_padded_completely():
     assert dilate(m, 100).sum() == 600
 
 
+def test_short_gap_between_blinks_is_padded():
+    # two blinks 30 samples apart: more than 127 of the 201 samples around the gap lie in blinks, where an 8-bit sum
+    # overflows; the gap, with a valid pupil value, must still count as padded
+    s = make_samples(n=3000, blink=(1000, 100))
+    s.loc[1130:1229, "in_blink"] = True
+    s.loc[1130:1229, "pupil"] = np.nan
+    out = pr.pad_blinks(s, pad_ms=100)
+    assert not out.loc[1100:1129, "valid"].any()
+    assert out["blink_pad"].sum() == (1229 + 100) - (1000 - 100) + 1
+
+
 def test_invalid_range_and_missing():
     s = make_samples(n=100)
     s.loc[10, "pupil"] = 50          # below the range

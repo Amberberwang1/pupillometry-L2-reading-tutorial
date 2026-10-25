@@ -36,6 +36,8 @@ def run_in(folder, code, env):
 def test_python_1_main_stages(study):
     env = run_in(study["folder"], box("python1.py"), {})
     assert {"change_0_20s", "baseline_pct"} <= set(env["trials"].columns)
+    assert {"excluded", "reason"} <= set(env["excluded"].columns) and "low" in env["low"].columns
+    assert (env["trials"]["baseline_pct"] >= 60).all()
     assert env["samples"]["reader"].iat[0] == "01" and set(env["samples"]["version"]) == {"simplified", "non-simplified"}
     out = os.path.join(study["folder"], "for_R")
     assert os.path.exists(os.path.join(out, "trials.csv")) and os.path.exists(os.path.join(out, "bins.csv"))
@@ -49,10 +51,11 @@ def test_python_2_to_4_stage_boxes(study):
     assert "valid" in env["samples"].columns and env["loss"].by_version is not None
     run_in(folder, box("python3.py"), env)                                     # bins and baseline
     assert np.isfinite(env["bins"]["change"]).any() and "low" in env["low"].columns
-    env["bins"] = pr.bin(env["samples"])                                       # gaze correction precedes the baseline
-    env["fixations"] = pr.read_fixations(os.path.join(folder, "01", "fixation_report.txt"), messages=msg, design=des)
-    run_in(folder, box("python4.py"), env)
-    assert "pupil_corrected" in env["bins"].columns and len(env["slopes"]) == 1
+    env4 = {"pr": pr, "samples": env["samples"]}                               # Python 4 starts again from Python 2
+    run_in(folder, box("python4.py"), env4)
+    assert len(env4["fixations"]) and len(env4["slopes"]) == 1
+    b = env4["bins"]
+    assert {"pupil_corrected", "change"} <= set(b.columns) and b.attrs["baseline"]["column"] == "pupil_corrected"
 
 
 R_SETUP_1 = "suppressMessages(library(lme4))\n"
