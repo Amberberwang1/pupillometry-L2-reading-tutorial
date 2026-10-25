@@ -17,7 +17,7 @@ GROUPS = [
     ("3.4 Gaze-position correction", ["saccade_steps", "classify_saccades", "step_slopes", "regression_slopes",
                                       "correct_gaze", "hat_basis"]),
     ("3.5 Trial length and events", ["trial_means", "window_name", "event_response"]),
-    ("3.6 Checks and figures", ["plot_trials", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze"]),
+    ("3.6 Checks and figures", ["plot_trial", "plot_trials", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze"]),
     ("3.7 Control predictors and export for R", ["add_covariates", "control_predictors", "export_for_r", "gamm_bins",
                                                  "r_script_path"]),
     ("5 The estimate under each option", ["options_table", "options_spec"]),

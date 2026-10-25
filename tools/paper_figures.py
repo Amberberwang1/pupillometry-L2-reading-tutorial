@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Figures 2, 3 and S1 of the tutorial from the outputs of reproduce_paper.py (same layout as the published figures).
+"""Figures 2, 3, 4 and S1 of the tutorial from the outputs of reproduce_paper.py (same layout as the published figures).
 
 Usage: python tools/paper_figures.py <reproduction folder> [<output folder>] [--fonts <folder with LiberationSans-*.ttf>]
-Reads first5s.csv, grand_mean.csv, events_return_sweep.csv, events_blink.csv (kept trials; events_blink_all_trials.csv
-with --blinks all), for_R/gamm/gamm_diff.csv and the residual plots gamm.R writes (for_R/gamm/gamm_residuals_M*.png).
+Reads figure2_trial.csv.gz and extra_numbers.json (Figure 2), first5s.csv, grand_mean.csv, events_return_sweep.csv,
+events_blink.csv (kept trials; events_blink_all_trials.csv with --blinks all), for_R/gamm/gamm_diff.csv and the
+residual plots gamm.R writes (for_R/gamm/gamm_residuals_M*.png).
 """
 import argparse
 import glob
+import json
 import logging
 import os
+import sys
 
 import matplotlib
 import pandas as pd
@@ -16,6 +19,10 @@ import pandas as pd
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "src"))
+import pupilread as pr  # noqa: E402
 
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 K, BAND = "black", "#c8c8c8"
@@ -44,7 +51,17 @@ def save(fig, out, name):
     plt.close(fig)
 
 
-def figure2(d, out, blinks="kept", base_end=200):
+def figure2(d, out, seconds=10):
+    """One trial at four stages of the pipeline, drawn by the package itself (pr.plot_trial)."""
+    with open(os.path.join(d, "extra_numbers.json")) as fh:
+        info = json.load(fh)["_figure2"]
+    s = pd.read_csv(os.path.join(d, "figure2_trial.csv.gz"), dtype={"reader": str})
+    fig = pr.plot_trial(s, trial=info["trial"], reader=info["reader"], reader_mean=info["reader_mean"],
+                        xlim=(0, seconds))
+    save(fig, out, "Figure2_one_trial")
+
+
+def figure3(d, out, blinks="kept", base_end=200):
     c = pd.read_csv(os.path.join(d, "first5s.csv"))
     g = pd.read_csv(os.path.join(d, "grand_mean.csv"))
     rs = pd.read_csv(os.path.join(d, "events_return_sweep.csv"))
@@ -101,10 +118,10 @@ def figure2(d, out, blinks="kept", base_end=200):
     a.set_ylabel("Pupil change\n(% of reader mean)")
     a.set_title("Blink offset", fontsize=8, loc="left")
     panel(a, "D")
-    save(fig, out, "Figure2_pupil_signals")
+    save(fig, out, "Figure3_pupil_signals")
 
 
-def figure3(d, out):
+def figure4(d, out):
     H = pd.read_csv(os.path.join(d, "for_R", "gamm", "gamm_diff.csv"))
     fig, b = plt.subplots(figsize=(4.6, 2.7))
     for m, ls, band in (("M1 no gaze term", "-", "#c8c8c8"), ("M2 gaze surface", (0, (4, 2)), "#e3e3e3")):
@@ -117,7 +134,7 @@ def figure3(d, out):
     b.set_xlabel("Time from text onset (s)")
     b.set_ylabel("Simplified minus\nnon-simplified (% of reader mean)")
     b.legend(fontsize=7, loc="upper left", handlelength=2.6, ncol=2)
-    save(fig, out, "Figure3_gamm_difference")
+    save(fig, out, "Figure4_gamm_difference")
 
 
 def figure_s1(d, out, fonts=None):
@@ -164,9 +181,11 @@ def main():
     out = a.out or os.path.join(a.folder, "figures")
     os.makedirs(out, exist_ok=True)
     style(a.fonts)
-    figure2(a.folder, out, a.blinks)
+    if os.path.exists(os.path.join(a.folder, "figure2_trial.csv.gz")):
+        figure2(a.folder, out)
+    figure3(a.folder, out, a.blinks)
     if os.path.exists(os.path.join(a.folder, "for_R", "gamm", "gamm_diff.csv")):
-        figure3(a.folder, out)
+        figure4(a.folder, out)
     if os.path.exists(os.path.join(a.folder, "for_R", "gamm", "gamm_residuals_M2.png")):
         figure_s1(a.folder, out, a.fonts)
     print("figures written to", out)

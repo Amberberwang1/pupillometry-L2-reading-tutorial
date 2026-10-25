@@ -42,6 +42,7 @@ SET1 = "01 02 07 08 10 12 14 16 18 20 25 27 29 31 33 35 38 39 41 43 45 47 49".sp
 IA_READERS = {"Set 1": ("01", "02"), "Set 2": ("03", "04")}   # layout from the first, checked against the second
 PX_PER_DEGREE = 20.7
 N_ITEMS = 24
+FIGURE2 = ("01", 5)          # reader and trial of Figure 2 (one trial at four stages of the pipeline)
 
 
 def reading_set(r: str) -> str:
@@ -212,7 +213,9 @@ def cmd_prepare(a):
             s.attrs["hz"] = 1000.0
         p = pr.prepare(s, f, cfg)
         p.save(folder)
-        # checks of the paper that need samples: blink-locked traces over all trials (as Figure 2D) and the
+        if r == FIGURE2[0] and not a.legacy:         # Figure 2 needs the raw samples of one trial
+            s[s["trial"] == FIGURE2[1]].to_csv(os.path.join(folder, "figure2_trial.csv.gz"), index=False)
+        # checks of the paper that need samples: blink-locked traces over all trials (as Figure 3D) and the
         # agreement of pupil-based blink detection with EyeLink blinks over the kept trials (Note S1)
         sp = pr.pad_blinks(s)
         del s
@@ -588,12 +591,12 @@ def text_numbers(res, data, T, cache, gamm=None):
         mm = _by_reader(kept, c).mean()
         out[f"3.5 {nm}, non-simplified (per s)"] = float(mm["non-simplified"])
         out[f"3.5 {nm}, simplified (per s)"] = float(mm["simplified"])
-    if "blink" in res.events:                    # Figure 2D: the blink response after the 100 ms padding
+    if "blink" in res.events:                    # Figure 3D: the blink response after the 100 ms padding
         bl = res.events["blink"].summary
         bl = bl[bl["lag"] > 100]
         out["3.5 blink response: largest rise, mean of versions (%)"] = float(bl.groupby("version")["pooled_pct"].max().mean())
         out["3.5 blink response: lowest point, mean of versions (%)"] = float(bl.groupby("version")["pooled_pct"].min().mean())
-    if "return_sweep" in res.events:             # Figure 2C: the trace around landing, by eye
+    if "return_sweep" in res.events:             # Figure 3C: the trace around landing, by eye
         rt = res.events["return_sweep"].summary
         lv = {}
         for e, g in rt.groupby("eye"):
@@ -944,13 +947,18 @@ def cmd_analyse(a):
     nums["3.7 text density changed the estimate by (percentage points)"] = float(k0.get("controls_K3", np.nan) - k0.get("controls_K2", np.nan))
     ct = compare_text(nums, text_ref)
     ct.to_csv(os.path.join(a.out, "compare_text.csv"), index=False)
+    f2 = os.path.join(a.cache, FIGURE2[0], "figure2_trial.csv.gz")
+    if os.path.exists(f2):                         # Figure 2: the trial's raw samples and the reader mean of the pipeline
+        shutil.copyfile(f2, os.path.join(a.out, "figure2_trial.csv.gz"))
+        nums["_figure2"] = {"reader": FIGURE2[0], "trial": FIGURE2[1],
+                            "reader_mean": float(pr.reader_means(data.bins)[FIGURE2[0]])}
     extra = {k: v for k, v in nums.items() if k.startswith("_") and not isinstance(v, pd.DataFrame)}
     with open(os.path.join(a.out, "extra_numbers.json"), "w") as fh:
         json.dump(extra, fh, indent=1, default=float)
     for k, v in nums.items():
         if isinstance(v, pd.DataFrame):
             v.to_csv(os.path.join(a.out, f"{k.strip('_')}.csv"), index=False)
-    for k, e in res.events.items():                     # event-locked traces for Figure 2C-D
+    for k, e in res.events.items():                     # event-locked traces for Figure 3C-D
         e.summary.to_csv(os.path.join(a.out, f"events_{k}.csv"), index=False)
     allb = [os.path.join(a.cache, r, "blink_events_all_trials.csv.gz") for r in READERS]
     if all(os.path.exists(f) for f in allb):
