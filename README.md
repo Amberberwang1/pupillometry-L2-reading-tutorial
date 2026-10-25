@@ -34,6 +34,21 @@ Until the package is on PyPI, install it from a copy of this repository (`pip in
 `pip install pupilread-1.0.0-py3-none-any.whl`). The R scripts need R with lme4 (trial means) and mgcv (time
 course).
 
+## What to export from Data Viewer
+
+Three reports per reader, as the tab-separated text files Data Viewer writes (reports with all their columns work as
+well; only these are read):
+
+- **Sample report**: TRIAL_INDEX, TIMESTAMP, TRIAL_START_TIME (to place the messages), EYE_TRACKED and, for the
+  recorded eye, LEFT_ or RIGHT_PUPIL_SIZE, _GAZE_X, _GAZE_Y, _IN_BLINK and _IN_SACCADE.
+- **Message report**: TRIAL_INDEX, CURRENT_MSG_TEXT and CURRENT_MSG_TIME, for text onset and the end-of-reading key
+  press; `onset` and `end` name the two messages (`DISPLAY_target` and `KEYBOARD_endTarget` in the paper's study).
+- **Fixation report**: TRIAL_INDEX and CURRENT_FIX_START, _END, _DURATION, _PUPIL, _X, _Y and _BLINK_AROUND, for the
+  fixation-versus-sample comparison (Section 3.1) and the saccade steps (Section 3.4).
+
+A design file (`design.csv`) gives the item and version of each trial. `make_example()` writes all four in the layout
+the examples use: `01/sample_report.txt`, `01/message_report.txt`, `01/fixation_report.txt` and `design.csv`.
+
 ## Quick start
 
 ```python
@@ -90,6 +105,7 @@ bins = pr.baseline(bins, window=(0, 200), method="subtractive")                 
 low = pr.low_baselines(bins, min_pct=60)
 trials = pr.trial_means(bins, window=(500, 20000))                                  # 3.5
 pr.plot_baselines(low); pr.plot_grand_mean(bins)                                    # 3.6
+pr.plot_trial(samples, trial=1, xlim=(0, 10))             # one trial at four stages (Figure 2)
 pr.export_for_r(trials, bins, folder="for_R")                                       # 3.7
 ```
 
@@ -168,14 +184,15 @@ paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.m
   and `cut_before_keypress_ms` leaves out the run-up to the key press.
 - **`event_response(data, event="blink" | "saccade" | "return_sweep" | table, window=None, by="version")`**:
   event-locked responses with local baselines: blinks locked to their offset with a baseline before the padded blink
-  (Figure 2D), return sweeps locked to landing (Figure 2C), or any table of event times. Returns reader means and their
+  (Figure 3D), return sweeps locked to landing (Figure 3C), or any table of event times. Returns reader means and their
   mean and SEM across readers.
 
 ### 3.6 Checks and figures
 
-`plot_trials` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality` (data loss and
-blink and saccade rates by version), `plot_gaze` (gaze position by version) and `plot_grand_mean` (Figure 2B: 1 s
-bins, 95% confidence intervals, points with at least 20 readers). All figures are black and white.
+`plot_trial` (one trial at four stages: raw samples, blinks padded and removed, 20 ms bins and the baseline-corrected
+change; Figure 2), `plot_trials` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
+(data loss and blink and saccade rates by version), `plot_gaze` (gaze position by version) and `plot_grand_mean`
+(Figure 3B: 1 s bins, 95% confidence intervals, points with at least 20 readers). All figures are black and white.
 
 ### 3.7 Control predictors and the hand-over to R
 

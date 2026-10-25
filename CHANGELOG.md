@@ -15,12 +15,15 @@ First release: the pipeline of the tutorial (stages 3.1 to 3.6) as one function 
   as skimmed (`exclude_trials`) and trials with low baselines (`low_baselines`), as the primary analysis does; Python 4
   reads the fixation report itself and starts from uncorrected bins, with the baseline correction after the gaze
   correction.
+- `plot_trial()` draws one trial at four stages of the pipeline: the raw samples, the samples after blink padding
+  and removal, the 20 ms bins and the baseline-corrected change (Figure 2 of the paper). Docstrings that cite the
+  paper's figures follow its numbering (the pupil signals are now Figure 3, the time-course difference Figure 4).
+- The README lists the Data Viewer reports and columns the package reads.
 - The wheel and the source distribution leave out `tools/` (the scripts that reproduce the paper, with their
   `--legacy` mode); they stay in the repository.
 - `tools/reproduce_paper.py` recomputes the screen for skimmed texts for any reader whose interest-area report repeats
   rows (see below), computes the readers needed for 80% power from d_z as printed and rounds them up to whole readers,
-  and checks the 95% confidence
-  intervals of the baseline differences.
+  and checks the 95% confidence intervals of the baseline differences.
 
 ### Differences from the scripts the paper was first computed with
 
