@@ -1,0 +1,8 @@
+{
+  "title": "pupilread: pupillometry preprocessing for passage reading",
+  "upload_type": "software",
+  "description": "Python package implementing the preprocessing pipeline of the tutorial on pupillometry in L2 reading research (blinks, baselines, step-based gaze-position correction, time-matched windows, event responses, data-quality checks, the trial measure under each option), with R scripts for the mixed-effects and time-course models.",
+  "license": "MIT",
+  "keywords": ["pupillometry", "eye tracking", "reading", "EyeLink", "preprocessing"],
+  "creators": [{"name": "Authors (to be added at release)"}]
+}

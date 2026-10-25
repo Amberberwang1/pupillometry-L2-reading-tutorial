@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pupilread"
+version = "1.0.0rc1"
+description = "Pupil-size preprocessing for passage reading: blinks, baselines, gaze-position correction, time-matched windows and exports for mixed-effects and time-course models in R"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Authors of the pupillometry tutorial (anonymised for review)"}]
+# At release: add the authors, and [project.urls] with the repository, documentation and Zenodo DOI.
+keywords = ["pupillometry", "eye tracking", "reading", "EyeLink", "preprocessing", "psycholinguistics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.21",
+    "pandas>=1.3",
+    "scipy>=1.7",
+    "matplotlib>=3.4",
+    "PyYAML>=5.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+pupilread = "pupilread.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pupilread = ["R/*.R"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
