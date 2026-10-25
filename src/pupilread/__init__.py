@@ -27,7 +27,7 @@ from .levels import Levels, bin, compare_levels, fixation_means, retained_fixati
 from .options import CONTROLS, OPTIONAL_CONTROLS, PAPER_OPTIONS, options_spec, options_table
 from .pipeline import (DEFAULTS, PupilData, Result, analyse, default_config_yaml, find_readers, levels_summary,
                        load_config, prepare, prepare_readers, read_reader, run_pipeline, summarise_events)
-from .plots import plot_baselines, plot_gaze, plot_grand_mean, plot_quality, plot_trials
+from .plots import plot_baselines, plot_gaze, plot_grand_mean, plot_quality, plot_trial, plot_trials
 from .windows import Events, event_response, trial_means, window_name
 
 __all__ = [
@@ -44,7 +44,7 @@ __all__ = [
     # 3.5 trial length and events
     "trial_means", "window_name", "event_response", "Events",
     # 3.6 checks and figures
-    "plot_trials", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze",
+    "plot_trial", "plot_trials", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze",
     # 3.7 control predictors and export for R
     "add_covariates", "control_predictors", "export_for_r", "gamm_bins", "r_script_path",
     # 5 options

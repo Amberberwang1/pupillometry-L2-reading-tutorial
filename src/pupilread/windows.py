@@ -96,7 +96,7 @@ def event_response(data: pd.DataFrame, event: Union[str, pd.DataFrame] = "blink"
                    by: Optional[str] = "version", saccades: Optional[pd.DataFrame] = None, baseline_ms: float = 100,
                    types: Sequence[str] = ("return sweep",), means: Optional[pd.Series] = None,
                    lag_ms: float = 1.0) -> Events:
-    """Event-locked pupil responses (stage 3.5; Figure 2C-D of the paper).
+    """Event-locked pupil responses (stage 3.5; Figure 3C-D of the paper).
 
     Parameters
     ----------
@@ -107,11 +107,11 @@ def event_response(data: pd.DataFrame, event: Union[str, pd.DataFrame] = "blink"
         ``blink``: locked to the last blink sample; baseline the ``baseline_ms`` before blink onset minus the padding,
         so that the blink's own response is measured. ``saccade``: locked to saccade onset, baseline just before it.
         ``return_sweep``: landing-locked bins of the saccades of ``types`` in ``saccades`` (:func:`saccade_steps`),
-        relative to the pupil before saccade onset, as in Figure 2C. A DataFrame with reader, trial and time (ms from
+        relative to the pupil before saccade onset, as in Figure 3C. A DataFrame with reader, trial and time (ms from
         text onset) locks the samples to those events.
     window : (start, end), optional
-        Lags in ms around the event (default: -200 to 2,000 ms for blinks, saccades and event tables, as in Figure 2D;
-        -300 to 1,000 ms for return sweeps, as in Figure 2C).
+        Lags in ms around the event (default: -200 to 2,000 ms for blinks, saccades and event tables, as in Figure 3D;
+        -300 to 1,000 ms for return sweeps, as in Figure 3C).
     by : str or None
         Column to split by (``version``; ``eye`` for return sweeps).
     lag_ms : float
@@ -123,7 +123,7 @@ def event_response(data: pd.DataFrame, event: Union[str, pd.DataFrame] = "blink"
     Events
         ``summary``: per level and lag, the mean and SEM across readers of each reader's mean response (% of the
         reader mean), the number of readers, ``pooled`` (all events pooled, raw units) and ``pooled_pct`` (pooled, as
-        % of the average reader mean, as in Figure 2D).
+        % of the average reader mean, as in Figure 3D).
         ``by_reader``: per reader, level and lag the sum, count and mean of the responses.
     """
     key = "return_sweep" if isinstance(event, str) and event in ("return_sweep", "return sweep", "saccade_steps") else (
