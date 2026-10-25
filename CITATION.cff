@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use pupilread, please cite the paper and the archived version of the package."
 title: "pupilread: pupillometry preprocessing for passage reading"
-version: 1.0.0rc1
+version: 1.0.0
 license: MIT
 type: software
 authors:

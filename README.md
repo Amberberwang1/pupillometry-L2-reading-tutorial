@@ -18,7 +18,7 @@ What it adds for passage reading:
 - a **table of the trial measure under each option** for a reduced multiverse analysis (`options_table`,
   `multiverse.R`).
 
-Status: release candidate 1.0.0rc1, for review with the paper. Tested on EyeLink 1000 Plus recordings (Data Viewer
+Status: 1.0.0, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
 reports, 1,000 and 2,000 Hz); other trackers can be read with `read_csv` (column mapping), which has been tested on
 synthetic files only.
 
@@ -31,7 +31,7 @@ pip install pupilread
 ```
 
 Until the package is on PyPI, install it from a copy of this repository (`pip install .` in its folder, or
-`pip install pupilread-1.0.0rc1-py3-none-any.whl`). The R scripts need R with lme4 (trial means) and mgcv (time
+`pip install pupilread-1.0.0-py3-none-any.whl`). The R scripts need R with lme4 (trial means) and mgcv (time
 course).
 
 ## Quick start
@@ -209,20 +209,22 @@ environment.
 
 ## Reproducing the paper
 
-`tools/reproduce_paper.py` reruns the paper's analysis from the raw Data Viewer reports with the package (stage 1 on the
+`tools/reproduce_paper.py` (in this repository; the released package leaves out `tools/`, including the `--legacy` mode below) reruns the paper's analysis from the raw Data Viewer reports with the package (stage 1 on the
 machine that holds the reports, stage 2 with R), fits Tables 3 and S1, recomputes every number quoted in the text and
 compares each with the value printed in the paper. With the package's defaults, all of them match
 (`docs/reproduction.md`).
 
 The first full-study draft of the paper was computed with earlier scripts. With `prepare --legacy`, the package imposes
 three assumptions of those scripts and then reproduces every trial value, every 20 ms bin and every number of that draft
-exactly. pupilread corrects them (see `CHANGELOG.md`), which moved the estimates by at most 0.04 percentage points,
-apart from the GAMM with a gaze surface (2.04% in the draft, 1.84% now):
+exactly. pupilread corrects them (see `CHANGELOG.md`), which moved the estimates of Table 3 by −0.08 to +0.10
+percentage points (primary estimate 1.27% in the draft, 1.37% now):
 
 1. durations counted in samples assumed 1,000 Hz, so 6 of the 45 recordings, made at 2,000 Hz, got 50 ms blink
    padding;
-2. the blink padding summed blink flags in 8-bit integers, which overflow inside blinks longer than 127 samples;
-3. one reader's sample report listed every sample twice.
+2. the blink padding summed blink flags in 8-bit integers, which overflow where blinks fill more than 127 of the 201
+   samples around a sample, so short gaps between blinks stayed valid;
+3. one reader's reports listed every row twice, which also doubled that reader's word counts in the screen for skimmed
+   texts and excluded five of the reader's trials as read too fast.
 
 ## Tests
 

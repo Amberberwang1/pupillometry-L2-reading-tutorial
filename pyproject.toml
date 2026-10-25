@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pupilread"
-version = "1.0.0rc1"
+version = "1.0.0"
 description = "Pupil-size preprocessing for passage reading: blinks, baselines, gaze-position correction, time-matched windows and exports for mixed-effects and time-course models in R"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -14,7 +14,7 @@ authors = [{name = "Authors of the pupillometry tutorial (anonymised for review)
 # At release: add the authors, and [project.urls] with the repository, documentation and Zenodo DOI.
 keywords = ["pupillometry", "eye tracking", "reading", "EyeLink", "preprocessing", "psycholinguistics"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
