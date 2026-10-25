@@ -352,7 +352,7 @@ DataFrame
 
 ## 3.4 Gaze-position correction
 
-### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f257cf00400>) -> 'pd.DataFrame'`
+### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f0076a782c0>) -> 'pd.DataFrame'`
 
 ```
 Measure the pupil step across every saccade between two retained fixations (stage 3.4).
@@ -506,7 +506,7 @@ Column name for a trial measure: ``change_0_20s`` for the paper's 0.5-20 s windo
 ### `event_response(data: 'pd.DataFrame', event: 'Union[str, pd.DataFrame]' = 'blink', window: 'Optional[Tuple[float, float]]' = None, by: 'Optional[str]' = 'version', saccades: 'Optional[pd.DataFrame]' = None, baseline_ms: 'float' = 100, types: 'Sequence[str]' = ('return sweep',), means: 'Optional[pd.Series]' = None, lag_ms: 'float' = 1.0) -> 'Events'`
 
 ```
-Event-locked pupil responses (stage 3.5; Figure 2C-D of the paper).
+Event-locked pupil responses (stage 3.5; Figure 3C-D of the paper).
 
 Parameters
 ----------
@@ -517,11 +517,11 @@ event : {"blink", "saccade", "return_sweep"} or DataFrame
     ``blink``: locked to the last blink sample; baseline the ``baseline_ms`` before blink onset minus the padding,
     so that the blink's own response is measured. ``saccade``: locked to saccade onset, baseline just before it.
     ``return_sweep``: landing-locked bins of the saccades of ``types`` in ``saccades`` (:func:`saccade_steps`),
-    relative to the pupil before saccade onset, as in Figure 2C. A DataFrame with reader, trial and time (ms from
+    relative to the pupil before saccade onset, as in Figure 3C. A DataFrame with reader, trial and time (ms from
     text onset) locks the samples to those events.
 window : (start, end), optional
-    Lags in ms around the event (default: -200 to 2,000 ms for blinks, saccades and event tables, as in Figure 2D;
-    -300 to 1,000 ms for return sweeps, as in Figure 2C).
+    Lags in ms around the event (default: -200 to 2,000 ms for blinks, saccades and event tables, as in Figure 3D;
+    -300 to 1,000 ms for return sweeps, as in Figure 3C).
 by : str or None
     Column to split by (``version``; ``eye`` for return sweeps).
 lag_ms : float
@@ -533,11 +533,45 @@ Returns
 Events
     ``summary``: per level and lag, the mean and SEM across readers of each reader's mean response (% of the
     reader mean), the number of readers, ``pooled`` (all events pooled, raw units) and ``pooled_pct`` (pooled, as
-    % of the average reader mean, as in Figure 2D).
+    % of the average reader mean, as in Figure 3D).
     ``by_reader``: per reader, level and lag the sum, count and mean of the responses.
 ```
 
 ## 3.6 Checks and figures
+
+### `plot_trial(samples: 'pd.DataFrame', trial, reader=None, pad_ms: 'float' = 100, bin_ms: 'float' = 20, window: 'Tuple[float, float]' = (0, 200), pupil_range: 'Tuple[float, float]' = (100, 10000), min_valid: 'float' = 0.5, reader_mean: 'Optional[float]' = None, xlim: 'Optional[Tuple[float, float]]' = None)`
+
+```
+One trial at four stages of the pipeline (stages 3.1 to 3.3; Figure 2 of the paper).
+
+(A) The raw samples, with the blinks the tracker marked shaded. (B) The samples after each blink is padded by
+``pad_ms`` and the padded and invalid samples are removed (:func:`pad_blinks`), with the padded stretches shaded.
+(C) The ``bin_ms`` bins (:func:`bin`). (D) The bins after subtractive baseline correction over ``window``, as a
+percentage of the reader mean (:func:`baseline`), with the baseline window shaded. The panels run the package's
+own functions, so they show exactly what the pipeline does to the trial.
+
+Parameters
+----------
+samples : DataFrame
+    Sample table (:func:`read_eyelink`, :func:`read_csv`), raw or already padded (``pupil_raw`` is then redrawn
+    and padded again with ``pad_ms``). Pass all of a reader's trials, so that the reader mean of panel D covers them.
+trial : int
+    Trial to draw (TRIAL_INDEX).
+reader : optional
+    Reader to draw, if ``samples`` holds several readers.
+pad_ms, bin_ms, window, pupil_range, min_valid
+    Settings of :func:`pad_blinks`, :func:`bin` and :func:`baseline` (defaults: the paper's).
+reader_mean : float, optional
+    Denominator of panel D. By default the mean of the reader's valid samples in ``samples`` after padding
+    (:func:`reader_means`); the pipeline takes it over the trials kept after the exclusions.
+xlim : (start, end), optional
+    Time range in seconds from text onset (default: the whole trial).
+
+Returns
+-------
+matplotlib Figure
+    Four stacked panels sharing the time axis; ``fig.trial_data`` holds the samples and bins drawn.
+```
 
 ### `plot_trials(bins: 'pd.DataFrame', column: 'str' = 'change', by: 'Optional[str]' = 'version', readers: 'Optional[Sequence]' = None, max_readers: 'int' = 6, ncols: 'int' = 3)`
 
@@ -556,7 +590,7 @@ Histogram of baselines (% of the reader mean) with counts and log-scaled counts,
 ### `plot_grand_mean(bins: 'pd.DataFrame', column: 'str' = 'change', by: 'Optional[str]' = 'version', bin_s: 'float' = 1.0, max_s: 'float' = 40, min_readers: 'int' = 20, min_baseline_pct: 'Optional[float]' = 60, ax=None)`
 
 ```
-Grand-mean time course by version with 95% confidence intervals across readers (Figure 2B of the paper).
+Grand-mean time course by version with 95% confidence intervals across readers (Figure 3B of the paper).
 
 Bins are averaged per reader in ``bin_s`` steps, then across readers; points with fewer than ``min_readers``
 readers are not drawn, so uneven trial lengths do not produce spurious divergence at the end of trials.
