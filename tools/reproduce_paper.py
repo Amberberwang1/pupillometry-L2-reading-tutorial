@@ -70,12 +70,76 @@ def design_table() -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["reader", "trial", "item", "version", "reading_set"])
 
 
-def exclusions(data: str) -> pd.DataFrame:
-    """Trials excluded before preprocessing, blind to version, as skimmed or incomplete (four criteria)."""
+SCREEN = {"too_fast_wpm": 600, "coverage_floor": 0.50, "short_fix_ms": 150, "reached_floor": 0.60}
+
+
+def _screen_reader(ia_path: str, mean_fix: pd.Series) -> pd.DataFrame:
+    """The four trial flags of the screen for skimmed or incomplete reading, from one interest-area report.
+
+    The same computation as the companion study's screen: reading rate (words per minute of trial dwell time), share of
+    words of five or more characters that were fixated, mean fixation duration (``mean_fix``, per trial) and how far
+    into the text the last fixated word lies. Repeated rows of the report are dropped first.
+    """
+    d = pd.read_csv(ia_path, sep="\t", low_memory=False)
+    d.columns = [c.replace("\ufeff", "").strip() for c in d.columns]
+    d = d.drop_duplicates()
+    d["TRIAL_INDEX"] = pd.to_numeric(d["TRIAL_INDEX"], errors="coerce")
+    d = d.dropna(subset=["TRIAL_INDEX"])
+    d["TRIAL_INDEX"] = d["TRIAL_INDEX"].astype(int)
+    for c in ("IA_DWELL_TIME", "IA_FIXATION_COUNT", "TRIAL_DWELL_TIME", "IA_ID"):
+        d[c] = pd.to_numeric(d[c], errors="coerce")
+    d["is_word"] = d["IA_LABEL"].apply(lambda x: isinstance(x, str) and any(ch.isalnum() for ch in x))
+    d["word_len"] = d["IA_LABEL"].astype(str).str.strip().str.len().where(d["is_word"])
+    rows = []
+    for ti, g in d.groupby("TRIAL_INDEX"):
+        w = g[g["is_word"]]
+        if not len(w):
+            continue
+        fixated = w["IA_FIXATION_COUNT"].fillna(0) > 0
+        dw = g["TRIAL_DWELL_TIME"].dropna()
+        dwell = float(dw.iloc[0]) if len(dw) else float(g["IA_DWELL_TIME"].sum())
+        lw = w[w["word_len"] >= 5]
+        cov = float((lw["IA_FIXATION_COUNT"].fillna(0) > 0).mean()) if len(lw) else np.nan
+        reached = float(w.loc[fixated, "IA_ID"].max() / w["IA_ID"].max()) if fixated.any() else 0.0
+        rows.append((ti, len(w) / (dwell / 60000.0) if dwell > 0 else np.inf, cov, reached))
+    T = pd.DataFrame(rows, columns=["TRIAL_INDEX", "reading_rate_wpm", "coverage_longwords", "prop_text_reached"])
+    T["mean_fix_dur_ms"] = T["TRIAL_INDEX"].map(mean_fix)
+    T["flagged"] = ((T["reading_rate_wpm"] > SCREEN["too_fast_wpm"]) | (T["coverage_longwords"] < SCREEN["coverage_floor"])
+                    | (T["mean_fix_dur_ms"] < SCREEN["short_fix_ms"]) | (T["prop_text_reached"] < SCREEN["reached_floor"]))
+    return T
+
+
+def exclusions(data: str, legacy: bool = False) -> pd.DataFrame:
+    """Trials excluded before preprocessing, blind to version, as skimmed or incomplete (four criteria).
+
+    The flags come from the companion study's screen (``full_study_trial_validity.csv``). That screen read reader 42's
+    interest-area report, which lists every row twice, so it counted the reader's words twice and doubled the reading
+    rate; five of the reader's trials crossed the 600 words-per-minute ceiling only for that reason. For every reader
+    whose report repeats rows, the flags are therefore recomputed here from the report without the repeats (with
+    ``legacy``, the screen's flags are used as they are, as in the original analysis).
+    """
     V = pd.read_csv(os.path.join(data, "RUN_IN_R", "data", "full_study_trial_validity.csv"))
-    V = V[V["flagged"].astype(str).isin(["True", "TRUE", "1", "1.0"])]
-    return pd.DataFrame({"reader": V["participant"].astype(int).map("{:02d}".format), "trial": V["TRIAL_INDEX"].astype(int),
-                         "reason": "skimmed or incomplete"})
+    V["reader"] = V["participant"].astype(int).map("{:02d}".format)
+    V["flag"] = V["flagged"].astype(str).isin(["True", "TRUE", "1", "1.0"])
+    notes = []
+    if not legacy:
+        for r in READERS:
+            ia = study_files(data, r)["ia"]
+            raw = pd.read_csv(ia, sep="\t", low_memory=False,
+                              usecols=lambda c: c.replace("\ufeff", "").strip() in ("TRIAL_INDEX", "IA_ID"))
+            if not raw.duplicated().any():
+                continue
+            m = V["reader"] == r
+            new = _screen_reader(ia, V.loc[m].set_index("TRIAL_INDEX")["mean_fix_dur_ms"])
+            flag = V.loc[m, "TRIAL_INDEX"].map(new.set_index("TRIAL_INDEX")["flagged"]).fillna(False).astype(bool)
+            changed = sorted(int(t) for t, a, b in zip(V.loc[m, "TRIAL_INDEX"], V.loc[m, "flag"], flag) if a != b)
+            V.loc[m, "flag"] = flag
+            notes.append(f"reader {r}: interest-area report repeats rows; screen recomputed without them, "
+                         f"flags changed for trials {changed}")
+    for n in notes:
+        print(n, flush=True)
+    V = V[V["flag"]]
+    return pd.DataFrame({"reader": V["reader"], "trial": V["TRIAL_INDEX"].astype(int), "reason": "skimmed or incomplete"})
 
 
 def study_config(cache: str, data: str = None) -> dict:
@@ -93,9 +157,12 @@ def legacy_mode():
 
     1. Every recording was treated as 1,000 Hz: blink padding, the interpolation limit and the blink-locked lags were
        counted in samples, so recordings at 2,000 Hz got 50 ms padding (and 25% valid samples sufficed for a 20 ms bin).
-    2. Blink padding summed the blink flags in 8-bit integers, which overflow inside blinks longer than 127 samples, so
-       the middle of long blinks was left unflagged (and kept where the tracker reported a pupil value).
+    2. Blink padding summed the blink flags in 8-bit integers, which overflow wherever more than 127 of the 201 samples
+       centred on a sample lie in blinks, so the middle of long blinks (where the pupil is missing) and short gaps
+       between blinks (where it is valid) were left unflagged.
     3. Duplicated rows of a sample report (one reader's report lists every sample twice) were kept.
+
+    The exclusion list then also keeps the screen's flags for that reader (see :func:`exclusions`).
     """
     import pupilread._utils as U
     import pupilread.blinks as Bk
@@ -117,7 +184,7 @@ def _restrict(df, keys):
 def cmd_prepare(a):
     os.makedirs(a.cache, exist_ok=True)
     design_table().to_csv(os.path.join(a.cache, "design.csv"), index=False)
-    exclusions(a.data).to_csv(os.path.join(a.cache, "exclusions.csv"), index=False)
+    exclusions(a.data, legacy=a.legacy).to_csv(os.path.join(a.cache, "exclusions.csv"), index=False)
     ia = os.path.join(a.cache, "ia")
     os.makedirs(ia, exist_ok=True)
     for s, rr in IA_READERS.items():
@@ -308,6 +375,7 @@ ORIGINAL_TEXT = {  # name: (value printed, decimals)
     "3.7 GAMM rho (AR1)": (0.92, 2), "3.7 GAMM M0 residual lag-1": (0.98, 2), "3.7 GAMM M1 AR1 residual lag-1": ("about", 0.23, 0.006),  # the draft rounded the log's 0.225 to .23
     "4.4 d_z across readers": (0.26, 2), "4.4 readers for 80% power": (118, 0), "4.4 readers for 80% power at d_z = 0.3": (89, 0),
     "S1 detector flags inside padded blinks, median (%)": (91.9, 1), "S1 detector flags outside padded blinks, median (%)": (2.1, 1),
+    "S1 trials kept after the exclusions for skimming and missing data": (1002, 0),
     "S2 rho without gaze surface": (0.917, 3), "S2 rho with gaze surface": (0.918, 3),
     "S2 excess kurtosis without gaze surface": (58, 0), "S2 excess kurtosis with gaze surface": (28, 0),
     "S2 k-check readers": (23, 0), "S2 k-check trials": (488, 0),
@@ -318,49 +386,62 @@ ORIGINAL_TEXT = {  # name: (value printed, decimals)
 
 #: Values printed in the paper (Table 3, Table S1, text), from pupilread 1.0.0 with its defaults.
 TABLE3 = {
-    "change_0_20s": (1.30, -0.25, 2.85, .101), "fixations": (1.32, -0.36, 3.00, .124),
-    "valid_75": (1.50, -0.06, 3.06, .059), "baseline_0_500": (1.47, 0.08, 2.85, .038),
-    "low_baselines_kept": (1.06, -0.53, 2.65, .192), "no_baseline": (1.40, 0.51, 2.28, .002),
-    "baseline_covariate": (1.37, 0.52, 2.22, .002), "diameter": (0.68, -0.06, 1.43, .073),
-    "whole_trial": (1.60, 0.06, 3.14, .042), "random_intercepts": (1.29, -0.14, 2.71, .077),
-    "control_predictors": (0.82, -0.71, 2.35, .295), "gaze_regression": (1.17, -0.54, 2.89, .179),
-    "gaze_steps_eye": (1.77, 0.00, 3.55, .050), "gaze_steps_type": (0.56, -0.99, 2.11, .479),
-    "GAMM M0 naive": (1.22, 1.09, 1.36, None), "GAMM M1 no gaze term": (1.25, -0.28, 2.78, .109),
-    "GAMM M2 gaze surface": (1.84, 0.31, 3.38, .019),
+    "change_0_20s": (1.37, -0.20, 2.94, .087), "fixations": (1.38, -0.31, 3.07, .110),
+    "valid_75": (1.58, 0.00, 3.16, .049), "baseline_0_500": (1.51, 0.12, 2.90, .033),
+    "low_baselines_kept": (1.13, -0.48, 2.74, .168), "no_baseline": (1.36, 0.48, 2.25, .003),
+    "baseline_covariate": (1.36, 0.51, 2.20, .002), "diameter": (0.71, -0.04, 1.47, .063),
+    "whole_trial": (1.67, 0.11, 3.23, .036), "random_intercepts": (1.35, -0.07, 2.78, .062),
+    "control_predictors": (0.89, -0.67, 2.44, .263), "gaze_regression": (1.26, -0.48, 2.99, .155),
+    "gaze_steps_eye": (1.85, 0.06, 3.63, .042), "gaze_steps_type": (0.63, -0.94, 2.19, .434),
+    "GAMM M0 naive": (1.29, 1.16, 1.42, None), "GAMM M1 no gaze term": (1.33, -0.22, 2.87, .092),
+    "GAMM M2 gaze surface": (1.96, 0.40, 3.52, .014),
 }
 TABLE_S1 = {
-    "fixations_same_trials": (1.38, -0.27, 3.03, .101), "interpolated": (1.30, -0.26, 2.85, .101),
-    "window_2_20": (1.42, -0.17, 3.02, .080),
-    "window_3_20": (1.49, -0.11, 3.10, .068), "window_5_20": (1.42, -0.20, 3.04, .085),
-    "left_eye": (1.41, -0.88, 3.70, .228), "right_eye": (1.31, -0.76, 3.38, .215),
-    "whole_trial_covariates": (1.60, 0.04, 3.15, .044), "cut_1s": (1.30, -0.25, 2.86, .101),
-    "cut_2s": (1.30, -0.25, 2.85, .101), "gaze_regression_time": (1.16, -0.53, 2.85, .179),
-    "gaze_steps_reader": (0.83, -1.25, 2.92, .434), "gaze_steps_map": (0.86, -0.75, 2.48, .294),
-    "GAMM M1 without AR1": (1.26, -0.32, 2.84, .117), "GAMM M2 without AR1": (0.76, -0.65, 2.17, .290),
+    "fixations_same_trials": (1.45, -0.22, 3.11, .088), "interpolated": (1.37, -0.20, 2.94, .087),
+    "window_2_20": (1.49, -0.12, 3.10, .069),
+    "window_3_20": (1.55, -0.06, 3.17, .060), "window_5_20": (1.47, -0.15, 3.10, .076),
+    "left_eye": (1.41, -0.88, 3.70, .228), "right_eye": (1.43, -0.67, 3.53, .183),
+    "whole_trial_covariates": (1.66, 0.08, 3.23, .039), "cut_1s": (1.37, -0.20, 2.94, .087),
+    "cut_2s": (1.37, -0.20, 2.93, .087), "gaze_regression_time": (1.23, -0.47, 2.94, .156),
+    "gaze_steps_reader": (0.91, -1.19, 3.00, .396), "gaze_steps_map": (0.93, -0.69, 2.56, .261),
+    "GAMM M1 without AR1": (1.34, -0.26, 2.94, .100), "GAMM M2 without AR1": (0.85, -0.56, 2.26, .237),
 }
-N_TRIALS = {"default": 981, "fixations": 919, "fixations_same_trials": 919, "valid_75": 925, "low_baselines_kept": 983,
-            "left_eye": 477, "right_eye": 504}
+N_TRIALS = {"default": 986, "fixations": 924, "fixations_same_trials": 924, "valid_75": 930, "low_baselines_kept": 988,
+            "left_eye": 477, "right_eye": 509}
 TEXT = dict(ORIGINAL_TEXT)
 TEXT.update({
-    "3.2 samples lost (%)": (10.2, 1), "3.2 lost to blink padding (%)": (6.1, 1),
+    "3.2 samples lost (%)": (10.1, 1), "3.2 lost to blink padding (%)": (6.0, 1),
     "3.3 trials without a 0-200 ms baseline": (19, 0), "3.3 trials without a 0-500 ms baseline": (9, 0),
-    "3.3 analysed trials": (981, 0), "3.3 baseline difference, 0-500 ms (%)": (-0.17, 2),
-    "3.5 rise, non-simplified minus simplified, p": (0.003, 3),
+    "3.3 analysed trials": (986, 0),
+    "3.3 baseline difference, 0-200 ms (%)": (-0.14, 2), "3.3 baseline difference, 0-200 ms: lower (%)": (-1.99, 2),
+    "3.3 baseline difference, 0-200 ms: upper (%)": (1.71, 2),
+    "3.3 baseline difference, 0-500 ms (%)": (-0.19, 2), "3.3 baseline difference, 0-500 ms: lower (%)": (-1.77, 2),
+    "3.3 baseline difference, 0-500 ms: upper (%)": (1.38, 2),
+    "3.5 trials ending before 20 s": (77, 0), "3.5 of them simplified": (46, 0),
+    "3.5 rise in the last second before the key press (%)": (5.1, 1),
+    "3.5 rise, non-simplified minus simplified, p": (0.005, 3),
     "3.5 blink response: largest rise, mean of versions (%)": ("about", 3.5, 0.25),
     "3.5 blink response: lowest point, mean of versions (%)": ("about", -3.5, 0.25),
-    "3.7 fixations from 0.5 to 20 s": (53991, 0), "3.7 fixation-level t": (11.28, 2),
-    "3.7 paired t-test on reader means, p": (0.084, 3),
-    "3.7 control predictors, no adjustment on the same bins (%)": (1.28, 2),
-    "3.7 control predictors, all (%)": (0.82, 2),
+    "3.5 blink rate, simplified (per s)": (0.32, 2),
+    "3.6 trials excluded as skimmed or incomplete": (61, 0),
+    "3.6 grand mean: median difference from 3 s (percentage points)": (1.6, 1),
+    "3.7 fixations from 0.5 to 20 s": (54227, 0), "3.7 fixation-level t": (11.60, 2),
+    "3.7 paired t-test on reader means, p": (0.080, 3),
+    "3.7 control predictors, no adjustment on the same bins (%)": (1.35, 2),
+    "3.7 control predictors, all (%)": (0.89, 2),
     "3.7 text density changed the estimate by (percentage points)": (0.05, 2),
-    "3.7 GAMM M1 AR1 residual lag-1": (0.27, 2), "4.4 readers for 80% power": (115, 0),
-    "S1 detector flags inside padded blinks, median (%)": (92.7, 1),
+    "3.7 GAMM M1 AR1 residual lag-1": (0.27, 2),
+    "4.4 d_z across readers": (0.267, 3), "4.4 readers for 80% power": (113, 0),
+    "4.4 readers for 80% power at d_z = 0.3": (90, 0),
+    "S1 detector flags inside padded blinks, median (%)": (92.8, 1),
     "S1 detector flags outside padded blinks, median (%)": (2.3, 1),
-    "S2 rho without gaze surface": (0.922, 3), "S2 rho with gaze surface": (0.921, 3),
-    "S2 excess kurtosis without gaze surface": (53, 0), "S2 k-check trials": (487, 0),
+    "S1 trials kept after the exclusions for skimming and missing data": (1007, 0),
+    "S2 rho without gaze surface": (0.922, 3), "S2 rho with gaze surface": (0.920, 3),
+    "S2 excess kurtosis without gaze surface": (53, 0), "S2 excess kurtosis with gaze surface": (29, 0),
+    "S2 k-check trials": (487, 0),
     "S2 k-check, k = 3: estimate (%)": (2.31, 2), "S2 k-check, k = 3: lower (%)": (0.30, 2), "S2 k-check, k = 3: upper (%)": (4.33, 2),
     "S2 k-check, k = 5: estimate (%)": (2.29, 2), "S2 k-check, k = 5: lower (%)": (0.27, 2), "S2 k-check, k = 5: upper (%)": (4.31, 2),
-    "5 smallest estimate in Table 3 (%)": (0.56, 2), "5 largest estimate in Table 3 (%)": (1.84, 2),
+    "5 smallest estimate in Table 3 (%)": (0.63, 2), "5 largest estimate in Table 3 (%)": (1.96, 2),
 })
 
 
@@ -375,6 +456,11 @@ def _paired(m: pd.DataFrame, a="simplified", b="non-simplified"):
 
 def _by_reader(df, col, by="version"):
     return df.groupby(["reader", by])[col].mean().unstack(by)
+
+
+#: Readers needed for a given power are rounded up, from d_z as printed (three decimals), so that the printed numbers
+#: check against each other; the first draft used the unrounded d_z and rounded to the nearest reader (legacy mode).
+ROUND_UP = True
 
 
 def _power(dz, power=0.8):
@@ -426,9 +512,12 @@ def text_numbers(res, data, T, cache, gamm=None):
     out["3.3 low baselines (< 60%)"] = int(len(lowb))
     out["3.3 low baselines that were non-simplified"] = int((lowb["version"] == "non-simplified").sum())
     out["3.3 analysed trials"] = int(len(an))
-    out["3.3 baseline difference, 0-200 ms (%)"] = _paired(_by_reader(an, "baseline_pct"))["diff"]
     l5 = lb500.merge(an[["reader", "trial"]], on=["reader", "trial"])
-    out["3.3 baseline difference, 0-500 ms (%)"] = _paired(_by_reader(l5, "baseline_pct"))["diff"]
+    for wn, src in (("0-200", an), ("0-500", l5)):       # simplified minus non-simplified, mean of readers, 95% CI
+        q = _paired(_by_reader(src, "baseline_pct"))
+        out[f"3.3 baseline difference, {wn} ms (%)"] = q["diff"]
+        out[f"3.3 baseline difference, {wn} ms: lower (%)"] = q["lo"]
+        out[f"3.3 baseline difference, {wn} ms: upper (%)"] = q["hi"]
     bn = pr.baseline(data.bins, method="none")
     fig = pr.plot_grand_mean(bn, by=None, bin_s=0.1, max_s=5, min_readers=1, min_baseline_pct=None)
     gm = fig.grand_mean
@@ -504,8 +593,17 @@ def text_numbers(res, data, T, cache, gamm=None):
         bl = bl[bl["lag"] > 100]
         out["3.5 blink response: largest rise, mean of versions (%)"] = float(bl.groupby("version")["pooled_pct"].max().mean())
         out["3.5 blink response: lowest point, mean of versions (%)"] = float(bl.groupby("version")["pooled_pct"].min().mean())
+    if "return_sweep" in res.events:             # Figure 2C: the trace around landing, by eye
+        rt = res.events["return_sweep"].summary
+        lv = {}
+        for e, g in rt.groupby("eye"):
+            g = g.set_index("lag")["mean"]
+            lv[e] = {"before (-100 to -20 ms)": float(g.loc[-100:-20].mean()), "20 to 120 ms": float(g.loc[20:120].mean()),
+                     "120 to 220 ms": float(g.loc[120:220].mean())}
+        out["_return_sweep_trace_levels"] = lv
     # 3.6
     out["3.6 trials excluded as skimmed or incomplete"] = int(listed.sum()) + (len(READERS) * N_ITEMS - len(D))
+    out["S1 trials kept after the exclusions for skimming and missing data"] = int(len(kept))
     out["3.6 trials read"] = len(READERS) * N_ITEMS
     fig = pr.plot_grand_mean(res.bins, by="version", bin_s=1, max_s=40, min_readers=20)
     gm2 = fig.grand_mean
@@ -529,8 +627,13 @@ def text_numbers(res, data, T, cache, gamm=None):
     pt = _paired(_by_reader(an.dropna(subset=["change_0_20s"]), "change_0_20s"))
     out["3.7 paired t-test on reader means, p"] = pt["p"]
     out["4.4 d_z across readers"] = pt["dz"]
-    out["4.4 readers for 80% power"] = _power(pt["dz"])
-    out["4.4 readers for 80% power at d_z = 0.3"] = _power(0.3)
+    dz = round(pt["dz"], 3) if ROUND_UP else pt["dz"]
+    n_obs, n_03 = _power(dz), _power(0.3)
+    out["_readers_for_80pct_power"] = {"observed d_z": pt["dz"], "d_z used": dz, "readers": n_obs,
+                                       "readers at the unrounded d_z": _power(pt["dz"]), "readers at d_z = 0.3": n_03}
+    up = (lambda n: math.ceil(n - 1e-9)) if ROUND_UP else (lambda n: n)   # whole readers, rounded up
+    out["4.4 readers for 80% power"] = up(n_obs)
+    out["4.4 readers for 80% power at d_z = 0.3"] = up(n_03)
     # Note S1
     ag = pd.concat([pd.read_csv(os.path.join(cache, r, "detector_agreement.csv"), dtype={"reader": str}) for r in READERS])
     out["S1 detector flags inside padded blinks, median (%)"] = float(ag["pct_padded_caught"].median())
@@ -764,6 +867,8 @@ def cmd_analyse(a):
     os.makedirs(a.out, exist_ok=True)
     cfg = pr.load_config(study_config(a.cache))
     legacy = is_legacy(a.cache)
+    global ROUND_UP
+    ROUND_UP = not legacy
     refs = (ORIGINAL_TABLE3, ORIGINAL_TABLE_S1, ORIGINAL_N_TRIALS) if legacy else (TABLE3, TABLE_S1, N_TRIALS)
     text_ref = ORIGINAL_TEXT if legacy else TEXT
     print("compared with the values of the " + ("original scripts (legacy cache)" if legacy else "paper"), flush=True)

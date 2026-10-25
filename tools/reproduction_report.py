@@ -66,8 +66,12 @@ def main(out_new, out_old, target, stage1=None):
     w("## What changed between the draft and the paper\n")
     w("The original scripts made three assumptions that pupilread corrects (`CHANGELOG.md`): durations counted in "
       "samples assumed 1,000 Hz, although 6 of the 45 recordings were made at 2,000 Hz; blink padding summed blink flags "
-      "in 8-bit integers, which overflow inside blinks longer than 127 samples; and one reader's sample report listed "
-      "every sample twice. The paper reports the corrected values.\n")
+      "in 8-bit integers, which overflow where blinks fill more than 127 of the 201 samples around a sample, so short "
+      "gaps between blinks stayed valid; and one reader's reports listed every "
+      "row twice. The repeated rows also doubled that reader's word counts in the companion study's screen for skimmed "
+      "texts, so five of the reader's trials crossed its reading-rate ceiling; `reproduce_paper.py` recomputes the "
+      "screen for that reader without the repeats (61 trials excluded as skimmed or incomplete, against 66). The paper "
+      "reports the corrected values.\n")
     w("## Tables 3 and S1\n")
     w("| Table | Option | Paper (pupilread defaults) | Status | Draft (original scripts) | Legacy mode | Trials (paper, draft) |")
     w("| --- | --- | --- | --- | --- | --- | --- |")
