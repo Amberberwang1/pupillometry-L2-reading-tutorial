@@ -1,5 +1,7 @@
 # Supplementary Materials: Pupillometry for L2 Reading Research
 
+Note: these scripts accompanied the first submission of the paper. The revision uses the pupilread package at the top of this repository.
+
 ## Overview
 
 This repository contains the complete analysis scripts for the preprocessing pipeline described in:
