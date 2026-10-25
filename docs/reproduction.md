@@ -134,36 +134,36 @@ Largest absolute difference between the package in legacy mode and the files the
 
 | Quantity | Compared | Missing in one | Largest difference |
 | --- | --- | --- | --- |
-| trial: change_0_20s vs 03b change_0_20s | 982 | 0 | 2.1e-14 |
-| trial: whole_trial vs 03b change_whole_trial | 982 | 0 | 2.1e-14 |
-| trial: interpolated vs 03b change_0_20s_interpolated | 982 | 0 | 2.1e-14 |
-| trial: baseline_0_500 vs 03b change_0_20s_baseline_500 | 982 | 0 | 2.1e-14 |
-| trial: gaze_regression vs 03b change_0_20s_gaze_regression | 982 | 0 | 4.6e-14 |
-| trial: gaze_regression_time vs 03b change_0_20s_gaze_regression_time | 982 | 0 | 5e-14 |
+| trial: change_0_20s vs 03b change_0_20s | 982 | 0 | 4.3e-14 |
+| trial: whole_trial vs 03b change_whole_trial | 982 | 0 | 5e-14 |
+| trial: interpolated vs 03b change_0_20s_interpolated | 982 | 0 | 5.5e-14 |
+| trial: baseline_0_500 vs 03b change_0_20s_baseline_500 | 982 | 0 | 5.3e-14 |
+| trial: gaze_regression vs 03b change_0_20s_gaze_regression | 982 | 0 | 6e-14 |
+| trial: gaze_regression_time vs 03b change_0_20s_gaze_regression_time | 982 | 0 | 5.3e-14 |
 | trial: no_baseline vs 03b pupil_0_20s_uncorrected | 982 | 0 | 2.1e-14 |
-| trial: diameter vs 03b change_0_20s_diameter | 982 | 0 | 2.3e-14 |
-| trial: baseline_denominator vs 03b change_0_20s_baseline_denominator | 982 | 0 | 2.1e-14 |
-| trial: fixations vs 03b change_0_20s_fixations | 919 | 0 | 7.1e-15 |
-| trial: baseline_pct vs 03b baseline_pct | 984 | 0 | 2.8e-14 |
+| trial: diameter vs 03b change_0_20s_diameter | 982 | 0 | 4.1e-14 |
+| trial: baseline_denominator vs 03b change_0_20s_baseline_denominator | 982 | 0 | 3.9e-14 |
+| trial: fixations vs 03b change_0_20s_fixations | 919 | 0 | 0 |
+| trial: baseline_pct vs 03b baseline_pct | 984 | 0 | 4.3e-14 |
 | trial: duration_s vs 03b duration_s | 984 | 0 | 0 |
-| trial: blink_rate vs 03b blink_rate | 984 | 0 | 0 |
+| trial: blink_rate vs 03b blink_rate | 984 | 0 | 2.2e-16 |
 | trial: saccade_rate vs 03b saccade_rate | 984 | 0 | 8.9e-16 |
-| trial: pct_valid vs 03b pct_valid | 984 | 0 | 0 |
-| trial: low_baselines_kept vs 03b change_0_20s | 984 | 0 | 2.1e-14 |
-| trial: window_2_20 vs L w2_20 | 982 | 0 | 7.1e-15 |
-| trial: window_3_20 vs L w3_20 | 982 | 0 | 7.1e-15 |
-| trial: window_5_20 vs L w5_20 | 982 | 0 | 7.1e-15 |
-| trial: cut_1s vs L m20_cut1 | 982 | 0 | 7.1e-15 |
-| trial: cut_2s vs L m20_cut2 | 982 | 0 | 7.1e-15 |
-| trial: gaze_steps_eye vs L4_trials m20_step_eye | 982 | 0 | 2.8e-14 |
-| trial: gaze_steps_reader vs L4_trials m20_step_reader | 982 | 0 | 2.8e-14 |
-| trial: gaze_steps_type vs L4E_trials m20_E1 | 982 | 0 | 2.1e-14 |
-| trial: gaze_steps_map vs L4E_trials m20_E2 | 982 | 0 | 4.3e-14 |
-| trial: controls_K0 vs K adj_K0 | 982 | 0 | 7.1e-15 |
-| trial: controls_K1 vs K adj_K1 | 982 | 0 | 2.1e-14 |
-| trial: controls_K2 vs K adj_K2 | 982 | 0 | 1.4e-14 |
-| trial: controls_K3 vs K adj_K3 | 982 | 0 | 1.1e-14 |
-| trial: controls_K4 vs K adj_K4 | 982 | 0 | 1.1e-14 |
+| trial: pct_valid vs 03b pct_valid | 984 | 0 | 1.4e-14 |
+| trial: low_baselines_kept vs 03b change_0_20s | 984 | 0 | 4.3e-14 |
+| trial: window_2_20 vs L w2_20 | 982 | 0 | 4.3e-14 |
+| trial: window_3_20 vs L w3_20 | 982 | 0 | 4.3e-14 |
+| trial: window_5_20 vs L w5_20 | 982 | 0 | 3.9e-14 |
+| trial: cut_1s vs L m20_cut1 | 982 | 0 | 4.1e-14 |
+| trial: cut_2s vs L m20_cut2 | 982 | 0 | 4.1e-14 |
+| trial: gaze_steps_eye vs L4_trials m20_step_eye | 982 | 0 | 5.7e-14 |
+| trial: gaze_steps_reader vs L4_trials m20_step_reader | 982 | 0 | 6.6e-14 |
+| trial: gaze_steps_type vs L4E_trials m20_E1 | 982 | 0 | 6.2e-14 |
+| trial: gaze_steps_map vs L4E_trials m20_E2 | 982 | 0 | 6e-14 |
+| trial: controls_K0 vs K adj_K0 | 982 | 0 | 4.3e-14 |
+| trial: controls_K1 vs K adj_K1 | 982 | 0 | 5e-14 |
+| trial: controls_K2 vs K adj_K2 | 982 | 0 | 4.1e-14 |
+| trial: controls_K3 vs K adj_K3 | 982 | 0 | 4.3e-14 |
+| trial: controls_K4 vs K adj_K4 | 982 | 0 | 4.3e-14 |
 | 20 ms bins: pupil vs per_reader p_rm | 1865916 | 0 | 0 |
 | 20 ms bins: pupil_interp vs per_reader p_ip | 2048804 | 0 | 0 |
 | 20 ms bins: n_valid vs per_reader nvalid | 2071087 | 0 | 0 |
@@ -177,15 +177,15 @@ Largest absolute difference between the package in legacy mode and the files the
 | trial data loss: n_blinks vs per_reader blink_n | 1079 | 0 | 0 |
 | trial data loss: n_saccades vs per_reader sacc_n | 1079 | 0 | 0 |
 | saccades with a step: new vs old | 98723 | 98723 |  |
-| saccades: step vs L4 step | 98723 | 0 | 7.1e-15 |
-| saccades: late vs L4 late | 91791 | 0 | 7.1e-15 |
-| saccades: dx vs L4 dx | 98729 | 0 | 1.1e-13 |
-| saccades: dy vs L4 dy | 98729 | 0 | 5.7e-14 |
+| saccades: step vs L4 step | 98723 | 0 | 0 |
+| saccades: late vs L4 late | 91791 | 0 | 2.8e-14 |
+| saccades: dx vs L4 dx | 98729 | 0 | 0 |
+| saccades: dy vs L4 dy | 98729 | 0 | 0 |
 | saccades: landing vs L4 L | 98729 | 0 | 0 |
 | 100 ms bins: rows only in one | 175961 | 0 |  |
-| 100 ms bins: pupil_change vs H rel | 175961 | 0 | 0 |
-| 100 ms bins: gaze_x vs H x | 175846 | 0 | 0 |
-| 100 ms bins: gaze_y vs H y | 175846 | 0 | 0 |
+| 100 ms bins: pupil_change vs H rel | 175961 | 0 | 5e-14 |
+| 100 ms bins: gaze_x vs H x | 175846 | 0 | 2.3e-13 |
+| 100 ms bins: gaze_y vs H y | 175846 | 0 | 2.3e-13 |
 
 ## Software
 
