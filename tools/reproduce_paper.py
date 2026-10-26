@@ -8,12 +8,16 @@ Stage 1, on the machine that holds the raw Data Viewer reports (about 20 s per r
 Stage 2, on a machine with R (lme4, mgcv); the time-course models need about 6 GB of memory and 30 minutes:
 
     python tools/reproduce_paper.py analyse --cache cache --out reproduction [--gamm] [--kcheck] [--old OLD]
+        [--layout layout.csv]
 
 Stage 2 adds the study's local text density (from the interest-area reports copied in stage 1), runs the package's
 pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 3 and S2 with the package's
 R scripts, recomputes the numbers quoted in the text and compares them with the values printed in the paper. With
 --old (the folder of the original scripts' per_reader/ and results/), it also compares every trial value and every
-20 ms bin with the outputs of the original scripts.
+20 ms bin with the outputs of the original scripts. With --layout (the measured layout of the recordings, as read by
+pupilread.read_layout), it adds the geometric correction of Hayes and Petrov (2016) to the options of Table 3 and
+compares the artifact that the layout predicts across each saccade with the measured saccade steps (Section 3.4;
+geometric_check.csv).
 
 Everything study-specific is in this file: the reader list, the readers recorded in ellipse mode, the reading sets and
 their version order, the exclusions of skimmed texts, the display (20.7 px per degree) and the text layout behind
@@ -49,6 +53,9 @@ FIGURE2 = ("01", 5)          # reader and trial of Figure 2 (one trial at four s
 ELLIPSE_READERS = ("28", "29", "35", "36")
 #: Random reader drops for the note of Table S2 (tools/random_reader_drops.R): draws, readers per draw, seed.
 RANDOM_DROPS = (2000, 4, 2026)
+#: The option of Table 3 added with --layout: the geometric correction with the measured layout.
+GEOMETRIC = ("gaze_geometric", dict(label="Geometric model, measured layout", gaze=dict(method="geometric"),
+                                    section="3.4", table="3"))
 
 
 def reading_set(r: str) -> str:
@@ -742,6 +749,42 @@ def spikes_removed(bins: pd.DataFrame, spikes: pd.DataFrame, means: pd.Series) -
     return tm[["reader", "trial", "spikes_removed"]]
 
 
+def geometric_check(steps: pd.DataFrame, bins: pd.DataFrame, layout) -> pd.DataFrame:
+    """The artifact that the measured layout predicts, against the saccade steps (Section 3.4), per eye.
+
+    For every saccade with a measured step, the predicted step is the change in foreshortening between its start and
+    landing positions, in % of the reader mean like the measured step: ref x (cos theta at landing / cos theta at the
+    start - 1). The predicted steps go through the same regressions as the measured ones (step_slopes, joint and by
+    saccade type); slopes are in percentage points per 100 pixels. Also the mean return-sweep step (mean over each
+    eye's readers, as in the text) and the range of the predicted artifact over the gaze positions of the analysis
+    window (2.5th to 97.5th percentile of cos theta).
+    """
+    lay = pr.read_layout(layout)
+    st = steps[np.isfinite(steps["step"])].copy()
+    c0 = pr.foreshortening(st.rename(columns={"x0": "gaze_x", "y0": "gaze_y"}), lay)
+    c1 = pr.foreshortening(st.rename(columns={"x1": "gaze_x", "y1": "gaze_y"}), lay)
+    pred = st.assign(step=st["ref"] * (c1 / c0 - 1))
+    rows = {}
+    for what, d in (("measured", st), ("predicted", pred)):
+        for method in ("joint", "by_type"):
+            sl = pr.step_slopes(d, by="eye", method=method)
+            for eye in sl.index:
+                rows.setdefault(eye, {})[f"{what} {method} x (pp per 100 px)"] = 100 * float(sl.loc[eye, "bX"])
+                rows[eye][f"{what} {method} y (pp per 100 px)"] = 100 * float(sl.loc[eye, "bY"])
+        rs = d[d["type"] == "return sweep"].groupby(["eye", "reader"])["step"].mean().groupby("eye").mean()
+        for eye, v in rs.items():
+            rows.setdefault(eye, {})[f"{what} return-sweep step (%)"] = float(v)
+    ok = pr._utils.ok_mask(bins) & np.isfinite(bins["gaze_x"]) & np.isfinite(bins["gaze_y"])
+    b = bins[ok & (bins["time"] >= 500) & (bins["time"] < 20000)]
+    c = pr.foreshortening(b, lay)
+    for eye in rows:
+        ce = c[(b["eye"].astype(str).str.lower() == eye).to_numpy()]
+        if ce.size:
+            lo, hi = np.percentile(ce, [2.5, 97.5])
+            rows[eye]["predicted artifact across the gaze positions read (%)"] = 100 * (1 - lo / hi)
+    return pd.DataFrame(rows).rename_axis("measure")
+
+
 def control_ladder(res, data):
     """Trial means adjusted for nested sets of control predictors on the same bins (Section 3.7)."""
     b = pr.add_covariates(res.bins, fixations=data.fixations, center=(512, 384), px_per_degree=PX_PER_DEGREE)
@@ -977,6 +1020,9 @@ def cmd_analyse(a):
         print(f"{len(data.readers)} readers read from the cache ({time.time() - t0:.0f} s)", flush=True)
         same = add_ink(data.bins, os.path.join(a.cache, "ia"))
         print("layouts identical across readers of a set:", same, flush=True)
+        if a.layout:                                   # the geometric correction as one more option of Table 3
+            cfg["gaze"]["layout"] = os.path.abspath(a.layout)
+            cfg["options"] = dict(pr.PAPER_OPTIONS, **{GEOMETRIC[0]: GEOMETRIC[1]})
         res = pr.analyse(data, cfg)
         T = res.options.copy()
         ladder, ksl = control_ladder(res, data)
@@ -1061,6 +1107,14 @@ def cmd_analyse(a):
         nums["Table S2 note: random four-reader drops with an estimate this low (%)"] = \
             100 * float((D["estimate"] <= k0["centroid_only"]).mean())
         nums["Table S2 note: random draws"] = int(len(D))
+    if a.layout:                       # Section 3.4: the geometric model against the saccade steps
+        gc = geometric_check(res.steps, data.bins, a.layout)
+        if GEOMETRIC[0] in k0.index:
+            r = mv.set_index("column").loc[GEOMETRIC[0]]
+            print(f"{GEOMETRIC[1]['label']}: {r['estimate']:.2f} [{r['lo']:.2f}, {r['hi']:.2f}], p = {r['p']:.3f}, "
+                  f"{int(r['n_trials'])} trials", flush=True)
+        gc.to_csv(os.path.join(a.out, "geometric_check.csv"))
+        print(gc.round(2).to_string(), flush=True)
     ct = compare_text(nums, text_ref)
     ct.to_csv(os.path.join(a.out, "compare_text.csv"), index=False)
     f2 = os.path.join(a.cache, FIGURE2[0], "figure2_trial.csv.gz")
@@ -1109,6 +1163,8 @@ def main(argv=None):
     s2.add_argument("--gamm", action="store_true", help="fit the GAMMs (about 30 minutes, 6 GB)")
     s2.add_argument("--kcheck", action="store_true", help="basis-dimension check of Note S2 (about 15 minutes)")
     s2.add_argument("--reuse", action="store_true", help="reuse the pooled results of an earlier run (out/state.pkl)")
+    s2.add_argument("--layout", help="measured layout of the recordings (CSV; pupilread.read_layout) for the "
+                                     "geometric correction")
     a = p.parse_args(argv)
     {"prepare": cmd_prepare, "analyse": cmd_analyse}[a.cmd](a)
 
