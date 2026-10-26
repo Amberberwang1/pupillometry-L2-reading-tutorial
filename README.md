@@ -35,7 +35,7 @@ means) and mgcv (time course).
 
 ## What to export from Data Viewer
 
-Three reports per reader, as the tab-separated text files Data Viewer writes (Table S2 of the paper). Reports with all
+Three reports per reader, as the tab-separated text files Data Viewer writes (Table S1 of the paper). Reports with all
 their columns work as well; only these are read:
 
 | Report | Columns | Used for |
@@ -208,7 +208,7 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 
 - **`options_table(samples, options=PAPER_OPTIONS)`**: the trial measure under each option, one column per option,
   missing for the trials an option leaves out, with standardised trial-level covariates. Each option changes one
-  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S1); `options_spec()` gives the model
+  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S2); `options_spec()` gives the model
   of each column, which `multiverse.R` fits.
 
 ## The R scripts
@@ -225,7 +225,7 @@ environment.
 ## Reproducing the paper
 
 `tools/reproduce_paper.py` (in this repository; the released package leaves out `tools/`, including the `--legacy` mode below) reruns the paper's analysis from the raw Data Viewer reports with the package (stage 1 on the
-machine that holds the reports, stage 2 with R), fits Tables 3 and S1, recomputes every number quoted in the text and
+machine that holds the reports, stage 2 with R), fits Tables 3 and S2, recomputes every number quoted in the text and
 compares each with the value printed in the paper. With the package's defaults, all of them match
 (`docs/reproduction.md`).
 
