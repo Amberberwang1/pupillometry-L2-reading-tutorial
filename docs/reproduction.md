@@ -1,6 +1,6 @@
 # Reproducing the paper with pupilread
 
-With its defaults, pupilread reproduces 33 of the 33 model estimates of Tables 3 and S1 (to the printed digits, with the printed trial counts) and 74 of the 74 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
+With its defaults, pupilread reproduces 33 of the 33 model estimates of Tables 3 and S2 (to the printed digits, with the printed trial counts) and 76 of the 76 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
 
 Run on the 45 readers' Data Viewer reports (not included: participant data):
 
@@ -16,7 +16,7 @@ python tools/reproduction_report.py reproduction reproduction_legacy docs/reprod
 
 The original scripts made three assumptions that pupilread corrects (`CHANGELOG.md`): durations counted in samples assumed 1,000 Hz, although 6 of the 45 recordings were made at 2,000 Hz; blink padding summed blink flags in 8-bit integers, which overflow where blinks fill more than 127 of the 201 samples around a sample, so short gaps between blinks stayed valid; and one reader's reports listed every row twice. The repeated rows also doubled that reader's word counts in the companion study's screen for skimmed texts, so five of the reader's trials crossed its reading-rate ceiling; `reproduce_paper.py` recomputes the screen for that reader without the repeats (61 trials excluded as skimmed or incomplete, against 66). The paper reports the corrected values.
 
-## Tables 3 and S1
+## Tables 3 and S2
 
 | Table | Option | Paper (pupilread defaults) | Status | Draft (original scripts) | Legacy mode | Trials (paper, draft) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -37,22 +37,22 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | 3 | GAMM M0 naive | 1.29 [1.16, 1.42], p < .001 | match | 1.22 [1.09, 1.35] | match | 986, 982 |
 | 3 | GAMM M1 no gaze term | 1.33 [−0.22, 2.87], p = .092 | match | 1.23 [−0.29, 2.76], p = .113 | match | 986, 982 |
 | 3 | GAMM M2 gaze surface | 1.96 [0.40, 3.52], p = .014 | match | 2.04 [0.51, 3.58], p = .009 | match | 986, 982 |
-| S1 | fixations_same_trials | 1.45 [−0.22, 3.11], p = .088 | match | 1.38 [−0.27, 3.03], p = .101 | match | 924, 919 |
-| S1 | interpolated | 1.37 [−0.20, 2.94], p = .087 | match | 1.27 [−0.28, 2.83], p = .108 | match | 986, 982 |
-| S1 | window_2_20 | 1.49 [−0.12, 3.10], p = .069 | match | 1.40 [−0.19, 2.99], p = .084 | match | 986, 982 |
-| S1 | window_3_20 | 1.55 [−0.06, 3.17], p = .060 | match | 1.47 [−0.13, 3.08], p = .072 | match | 986, 982 |
-| S1 | window_5_20 | 1.47 [−0.15, 3.10], p = .076 | match | 1.40 [−0.22, 3.02], p = .090 | match | 986, 982 |
-| S1 | left_eye | 1.41 [−0.88, 3.70], p = .228 | match | 1.41 [−0.88, 3.70], p = .228 | match | 477, 477 |
-| S1 | right_eye | 1.43 [−0.67, 3.53], p = .183 | match | 1.27 [−0.80, 3.34], p = .228 | match | 509, 505 |
-| S1 | whole_trial_covariates | 1.66 [0.08, 3.23], p = .039 | match | 1.57 [0.02, 3.13], p = .047 | match | 986, 982 |
-| S1 | cut_1s | 1.37 [−0.20, 2.94], p = .087 | match | 1.28 [−0.28, 2.83], p = .107 | match | 986, 982 |
-| S1 | cut_2s | 1.37 [−0.20, 2.93], p = .087 | match | 1.27 [−0.28, 2.82], p = .108 | match | 986, 982 |
-| S1 | gaze_regression_time | 1.23 [−0.47, 2.94], p = .156 | match | 1.14 [−0.55, 2.83], p = .185 | match | 986, 982 |
-| S1 | gaze_steps_reader | 0.91 [−1.19, 3.00], p = .396 | match | 0.80 [−1.28, 2.89], p = .450 | match | 986, 982 |
-| S1 | gaze_steps_map | 0.93 [−0.69, 2.56], p = .261 | match | 0.84 [−0.78, 2.45], p = .310 | match | 986, 982 |
-| S1 | GAMM M1 without AR1 | 1.34 [−0.26, 2.94], p = .100 | match | 1.24 [−0.33, 2.82], p = .122 | match | 986, 982 |
-| S1 | GAMM M2 without AR1 | 0.85 [−0.56, 2.26], p = .237 | match | 0.79 [−0.77, 2.36], p = .320 | match | 986, 982 |
-| S1 | centroid_only | 1.09 [−0.57, 2.75], p = .198 | match | not in the draft |  | 893, – |
+| S2 | fixations_same_trials | 1.45 [−0.22, 3.11], p = .088 | match | 1.38 [−0.27, 3.03], p = .101 | match | 924, 919 |
+| S2 | interpolated | 1.37 [−0.20, 2.94], p = .087 | match | 1.27 [−0.28, 2.83], p = .108 | match | 986, 982 |
+| S2 | window_2_20 | 1.49 [−0.12, 3.10], p = .069 | match | 1.40 [−0.19, 2.99], p = .084 | match | 986, 982 |
+| S2 | window_3_20 | 1.55 [−0.06, 3.17], p = .060 | match | 1.47 [−0.13, 3.08], p = .072 | match | 986, 982 |
+| S2 | window_5_20 | 1.47 [−0.15, 3.10], p = .076 | match | 1.40 [−0.22, 3.02], p = .090 | match | 986, 982 |
+| S2 | left_eye | 1.41 [−0.88, 3.70], p = .228 | match | 1.41 [−0.88, 3.70], p = .228 | match | 477, 477 |
+| S2 | right_eye | 1.43 [−0.67, 3.53], p = .183 | match | 1.27 [−0.80, 3.34], p = .228 | match | 509, 505 |
+| S2 | whole_trial_covariates | 1.66 [0.08, 3.23], p = .039 | match | 1.57 [0.02, 3.13], p = .047 | match | 986, 982 |
+| S2 | cut_1s | 1.37 [−0.20, 2.94], p = .087 | match | 1.28 [−0.28, 2.83], p = .107 | match | 986, 982 |
+| S2 | cut_2s | 1.37 [−0.20, 2.93], p = .087 | match | 1.27 [−0.28, 2.82], p = .108 | match | 986, 982 |
+| S2 | gaze_regression_time | 1.23 [−0.47, 2.94], p = .156 | match | 1.14 [−0.55, 2.83], p = .185 | match | 986, 982 |
+| S2 | gaze_steps_reader | 0.91 [−1.19, 3.00], p = .396 | match | 0.80 [−1.28, 2.89], p = .450 | match | 986, 982 |
+| S2 | gaze_steps_map | 0.93 [−0.69, 2.56], p = .261 | match | 0.84 [−0.78, 2.45], p = .310 | match | 986, 982 |
+| S2 | GAMM M1 without AR1 | 1.34 [−0.26, 2.94], p = .100 | match | 1.24 [−0.33, 2.82], p = .122 | match | 986, 982 |
+| S2 | GAMM M2 without AR1 | 0.85 [−0.56, 2.26], p = .237 | match | 0.79 [−0.77, 2.36], p = .320 | match | 986, 982 |
+| S2 | centroid_only | 1.09 [−0.57, 2.75], p = .198 | match | not in the draft |  | 893, – |
 
 ## Numbers in the text
 
@@ -132,6 +132,8 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | 3.6 valid reading time per residual spike (s, about 80) | about 80 | 78.561 | match |  |  |
 | 3.6 residual spikes removed: estimate (%) | 1.36 | 1.3551 | match |  |  |
 | 3.6 residual spikes removed: p | 0.092 | 0.09202 | match |  |  |
+| Table S2 note: random four-reader drops with an estimate this low (%) | 12.6 | 12.6 | match |  |  |
+| Table S2 note: random draws | 2000 | 2000.0 | match |  |  |
 
 ## Legacy mode against the outputs of the original scripts
 

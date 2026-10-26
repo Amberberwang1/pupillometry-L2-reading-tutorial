@@ -717,7 +717,7 @@ samples : DataFrame or PupilData
     ``config`` (:func:`prepare`), or data already prepared by :func:`prepare` or :func:`run_pipeline`.
 options : dict, optional
     Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
-    and S1). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
+    and S2). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
 fixations : DataFrame, optional
     Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
 config : dict or str, optional
