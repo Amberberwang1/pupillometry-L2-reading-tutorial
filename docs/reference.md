@@ -163,7 +163,7 @@ Fixations of at least ``min_fix_ms`` that do not border a blink (the fixations r
 ### `fixation_means(fixations: 'pd.DataFrame', reader_means: 'pd.Series', window: 'Tuple[float, Optional[float]]' = (500, 20000), baseline: 'Tuple[float, float]' = (0, 200), min_fix_ms: 'float' = 80, name: 'str' = 'change_fixations') -> 'pd.DataFrame'`
 
 ```
-Trial means from fixation averages instead of samples (the fixation-level option of Table 3).
+Trial means from fixation averages instead of samples (the fixation-level option of Table 4).
 
 The baseline is the mean pupil value of retained fixations that overlap the baseline window, the trial value the
 mean of retained fixations that start within ``window``; the change is expressed as % of the reader mean, as for
@@ -281,7 +281,7 @@ samples : DataFrame
     Samples after :func:`pad_blinks`.
 min_valid : float
     Minimum share of valid samples (paper: 0.5, i.e. trials with more than half of their samples missing are
-    excluded; 0.75 is the stricter check of Table 3).
+    excluded; 0.75 is the stricter check of Table 4).
 exclude : DataFrame, iterable of (reader, trial) or CSV path, optional
     Trials to drop for other reasons decided blind to version (our study: skimmed or incomplete reading).
 loss : DataFrame, optional
@@ -352,7 +352,7 @@ DataFrame
 
 ## 3.4 Gaze-position correction
 
-### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f0076a782c0>) -> 'pd.DataFrame'`
+### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f777e736f20>) -> 'pd.DataFrame'`
 
 ```
 Measure the pupil step across every saccade between two retained fixations (stage 3.4).
@@ -422,12 +422,12 @@ DataFrame
 ### `regression_slopes(bins: 'pd.DataFrame', window: 'Tuple[float, float]' = (0, 200), min_baseline_pct: 'float' = 60, time_terms: 'bool' = False, means: 'Optional[pd.Series]' = None) -> 'pd.Series'`
 
 ```
-Artifact slopes from regressing pupil size on gaze position in the reading data (stage 3.4; Table 2).
+Artifact slopes from regressing pupil size on gaze position in the reading data (stage 3.4; Table 3).
 
 ``time_terms=False``: pooled regression of the baseline-corrected pupil on gaze x and y over all valid bins of the
 analysed trials. ``time_terms=True``: within-trial regression with linear and quadratic time, which absorbs the
 decline of pupil size during reading. Because gaze covaries with progress through the text, these slopes can absorb
-part of a real effect or enlarge it; the saccade steps avoid that (Table 2).
+part of a real effect or enlarge it; the saccade steps avoid that (Table 3).
 
 Returns
 -------
@@ -716,7 +716,7 @@ samples : DataFrame or PupilData
     The sample table of one or more readers (:func:`read_eyelink`), which is prepared with the settings of
     ``config`` (:func:`prepare`), or data already prepared by :func:`prepare` or :func:`run_pipeline`.
 options : dict, optional
-    Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
+    Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 4
     and S1). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
 fixations : DataFrame, optional
     Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
