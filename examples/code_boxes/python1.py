@@ -11,4 +11,3 @@ bins = pr.baseline(bins, window=(0, 200), method="subtractive")    # 3.3
 low = pr.low_baselines(bins, min_pct=60)      # 3.3; R 1 drops these trials
 trials = pr.trial_means(bins, window=(500, 20000))                 # 3.5
 pr.export_for_r(trials, bins, folder="for_R")      # files for R 1 and R 2
-# pr.run_pipeline() runs the same stages for every reader at once
