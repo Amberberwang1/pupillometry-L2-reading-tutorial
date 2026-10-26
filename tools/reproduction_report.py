@@ -52,7 +52,7 @@ def main(out_new, out_old, target, stage1=None):
     w("# Reproducing the paper with pupilread\n")
     no = int((to["status"] == "match").sum())
     xo_n = int((xo["status"] == "match").sum())
-    w(f"With its defaults, pupilread reproduces {nt} of the {len(tn)} model estimates of Tables 3 and S1 (to the "
+    w(f"With its defaults, pupilread reproduces {nt} of the {len(tn)} model estimates of Tables 3 and S2 (to the "
       f"printed digits, with the printed trial counts) and {nx} of the {len(xn)} numbers quoted in the text and "
       f"supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts "
       f"computed: {no} of {len(to)} estimates and {xo_n} of {len(xo)} numbers, and every trial value and bin "
@@ -72,12 +72,12 @@ def main(out_new, out_old, target, stage1=None):
       "texts, so five of the reader's trials crossed its reading-rate ceiling; `reproduce_paper.py` recomputes the "
       "screen for that reader without the repeats (61 trials excluded as skimmed or incomplete, against 66). The paper "
       "reports the corrected values.\n")
-    w("## Tables 3 and S1\n")
+    w("## Tables 3 and S2\n")
     w("| Table | Option | Paper (pupilread defaults) | Status | Draft (original scripts) | Legacy mode | Trials (paper, draft) |")
     w("| --- | --- | --- | --- | --- | --- | --- |")
     for _, r in tn.iterrows():
         o = to[(to["table"] == r["table"]) & (to["option"] == r["option"])]
-        ref_old = (rp.ORIGINAL_TABLE3 if str(r["table"]) == "3" else rp.ORIGINAL_TABLE_S1).get(r["option"])
+        ref_old = (rp.ORIGINAL_TABLE3 if str(r["table"]) == "3" else rp.ORIGINAL_TABLE_S2).get(r["option"])
         draft = fmt(*ref_old) if ref_old else "not in the draft"
         leg = o["status"].iat[0] if len(o) else ("not run" if ref_old else "")
         ntr = rp.ORIGINAL_N_TRIALS.get(r["option"], rp.ORIGINAL_N_TRIALS["default"]) if ref_old else "–"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce the numbers of the tutorial (Tables 3 and S1 and the text) with pupilread, from the raw EyeLink reports.
+"""Reproduce the numbers of the tutorial (Tables 3 and S2 and the text) with pupilread, from the raw EyeLink reports.
 
 Stage 1, on the machine that holds the raw Data Viewer reports (about 20 s per reader, 2 GB of memory):
 
@@ -10,7 +10,7 @@ Stage 2, on a machine with R (lme4, mgcv); the time-course models need about 6 G
     python tools/reproduce_paper.py analyse --cache cache --out reproduction [--gamm] [--kcheck] [--old OLD]
 
 Stage 2 adds the study's local text density (from the interest-area reports copied in stage 1), runs the package's
-pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 3 and S1 with the package's
+pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 3 and S2 with the package's
 R scripts, recomputes the numbers quoted in the text and compares them with the values printed in the paper. With
 --old (the folder of the original scripts' per_reader/ and results/), it also compares every trial value and every
 20 ms bin with the outputs of the original scripts.
@@ -47,6 +47,8 @@ FIGURE2 = ("01", 5)          # reader and trial of Figure 2 (one trial at four s
 #: Readers whose message reports show the tracker's ellipse-fitting pupil mode (ELCL_PROC ELLIPSE) in every trial; the
 #: others were recorded in centroid mode. Readers 27 and 34 were also recorded in ellipse mode but are excluded.
 ELLIPSE_READERS = ("28", "29", "35", "36")
+#: Random reader drops for the note of Table S2 (tools/random_reader_drops.R): draws, readers per draw, seed.
+RANDOM_DROPS = (2000, 4, 2026)
 
 
 def reading_set(r: str) -> str:
@@ -338,7 +340,7 @@ ORIGINAL_TABLE3 = {
     "GAMM M0 naive": (1.22, 1.09, 1.35, None), "GAMM M1 no gaze term": (1.23, -0.29, 2.76, .113),
     "GAMM M2 gaze surface": (2.04, 0.51, 3.58, .009),
 }
-ORIGINAL_TABLE_S1 = {
+ORIGINAL_TABLE_S2 = {
     "fixations_same_trials": (1.38, -0.27, 3.03, .101), "interpolated": (1.27, -0.28, 2.83, .108),
     "window_2_20": (1.40, -0.19, 2.99, .084),
     "window_3_20": (1.47, -0.13, 3.08, .072), "window_5_20": (1.40, -0.22, 3.02, .090),
@@ -391,7 +393,7 @@ ORIGINAL_TEXT = {  # name: (value printed, decimals)
     "5 smallest estimate in Table 3 (%)": (0.54, 2), "5 largest estimate in Table 3 (%)": (2.04, 2),
 }
 
-#: Values printed in the paper (Table 3, Table S1, text), from pupilread 1.0.0 with its defaults.
+#: Values printed in the paper (Table 3, Table S2, text), from pupilread 1.0.0 with its defaults.
 TABLE3 = {
     "change_0_20s": (1.37, -0.20, 2.94, .087), "fixations": (1.38, -0.31, 3.07, .110),
     "valid_75": (1.58, 0.00, 3.16, .049), "baseline_0_500": (1.51, 0.12, 2.90, .033),
@@ -403,7 +405,7 @@ TABLE3 = {
     "GAMM M0 naive": (1.29, 1.16, 1.42, None), "GAMM M1 no gaze term": (1.33, -0.22, 2.87, .092),
     "GAMM M2 gaze surface": (1.96, 0.40, 3.52, .014),
 }
-TABLE_S1 = {
+TABLE_S2 = {
     "fixations_same_trials": (1.45, -0.22, 3.11, .088), "interpolated": (1.37, -0.20, 2.94, .087),
     "window_2_20": (1.49, -0.12, 3.10, .069),
     "window_3_20": (1.55, -0.06, 3.17, .060), "window_5_20": (1.47, -0.15, 3.10, .076),
@@ -436,6 +438,8 @@ TEXT.update({
     "3.6 trials with residual downward spikes (%)": (26, 0),
     "3.6 valid reading time per residual spike (s, about 80)": ("about", 80, 5),
     "3.6 residual spikes removed: estimate (%)": (1.36, 2), "3.6 residual spikes removed: p": (0.092, 3),
+    "Table S2 note: random four-reader drops with an estimate this low (%)": (12.6, 1),
+    "Table S2 note: random draws": (2000, 0),
     "3.7 fixations from 0.5 to 20 s": (54227, 0), "3.7 fixation-level t": (11.60, 2),
     "3.7 paired t-test on reader means, p": (0.080, 3),
     "3.7 control predictors, no adjustment on the same bins (%)": (1.35, 2),
@@ -762,9 +766,9 @@ def _fmt(v, d):
 
 
 def compare_models(mv, gamm, refs=None):
-    t3, s1, ntr = refs or (TABLE3, TABLE_S1, N_TRIALS)
+    t3, s2, ntr = refs or (TABLE3, TABLE_S2, N_TRIALS)
     rows = []
-    for table, ref in (("3", t3), ("S1", s1)):
+    for table, ref in (("3", t3), ("S2", s2)):
         for name, (e, lo, hi, p) in ref.items():
             if name.startswith("GAMM"):
                 if gamm is None:
@@ -958,7 +962,7 @@ def cmd_analyse(a):
     legacy = is_legacy(a.cache)
     global ROUND_UP
     ROUND_UP = not legacy
-    refs = (ORIGINAL_TABLE3, ORIGINAL_TABLE_S1, ORIGINAL_N_TRIALS) if legacy else (TABLE3, TABLE_S1, N_TRIALS)
+    refs = (ORIGINAL_TABLE3, ORIGINAL_TABLE_S2, ORIGINAL_N_TRIALS) if legacy else (TABLE3, TABLE_S2, N_TRIALS)
     text_ref = ORIGINAL_TEXT if legacy else TEXT
     print("compared with the values of the " + ("original scripts (legacy cache)" if legacy else "paper"), flush=True)
     state = os.path.join(a.out, "state.pkl")
@@ -991,12 +995,12 @@ def cmd_analyse(a):
         spec = pd.concat([spec, pd.DataFrame([dict(column="spikes_removed", label="Residual spikes removed",
                                                    random="slope", covariates="", term="contrast", section="3.6",
                                                    table="text")])], ignore_index=True)
-        if not legacy:      # Table S1: the primary estimate without the readers recorded in ellipse mode
+        if not legacy:      # Table S2: the primary estimate without the readers recorded in ellipse mode
             T["centroid_only"] = np.where(T["reader"].astype(str).isin(ELLIPSE_READERS), np.nan, T["change_0_20s"])
             spec = pd.concat([spec, pd.DataFrame([dict(column="centroid_only",
                                                        label="Without the four ellipse-mode readers", random="slope",
                                                        covariates="", term="contrast", section="2.2",
-                                                       table="S1")])], ignore_index=True)
+                                                       table="S2")])], ignore_index=True)
         T.attrs = {"options": spec.to_dict("records")}
         files = pr.export_for_r(T, res.bins, os.path.join(a.out, "for_R"), reference="non-simplified", config=cfg)
         res.files.update(files)
@@ -1007,6 +1011,10 @@ def cmd_analyse(a):
     fr = os.path.join(a.out, "for_R")
     run_r("multiverse.R", ["trials.csv", "options.csv", "multiverse_results.csv"], fr, log=os.path.join(fr, "multiverse_log.txt"))
     run_r("lmm.R", ["trials.csv", "lmm_results.csv"], fr, log=os.path.join(fr, "lmm_log.txt"))
+    drops = os.path.join(fr, "random_reader_drops.csv")
+    if not legacy and not os.path.exists(drops):     # Table S2 note: the primary estimate after random reader drops
+        run_r(os.path.join(HERE, "random_reader_drops.R"), ["trials.csv", "random_reader_drops.csv"] +
+              [str(x) for x in RANDOM_DROPS], fr, log=os.path.join(fr, "random_reader_drops_log.txt"))
     gamm = None
     gs = os.path.join(fr, "gamm", "gamm_summary.csv")
     if a.gamm and not os.path.exists(gs):
@@ -1048,6 +1056,11 @@ def cmd_analyse(a):
     if "spikes_removed" in k0.index:
         nums["3.6 residual spikes removed: estimate (%)"] = float(k0["spikes_removed"])
         nums["3.6 residual spikes removed: p"] = float(mv.set_index("column").loc["spikes_removed", "p"])
+    if not legacy and os.path.exists(drops) and "centroid_only" in k0.index:
+        D = pd.read_csv(drops)
+        nums["Table S2 note: random four-reader drops with an estimate this low (%)"] = \
+            100 * float((D["estimate"] <= k0["centroid_only"]).mean())
+        nums["Table S2 note: random draws"] = int(len(D))
     ct = compare_text(nums, text_ref)
     ct.to_csv(os.path.join(a.out, "compare_text.csv"), index=False)
     f2 = os.path.join(a.cache, FIGURE2[0], "figure2_trial.csv.gz")
