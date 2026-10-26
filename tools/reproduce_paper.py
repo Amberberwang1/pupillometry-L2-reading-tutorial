@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce the numbers of the tutorial (Tables 3 and S1 and the text) with pupilread, from the raw EyeLink reports.
+"""Reproduce the numbers of the tutorial (Tables 4 and S1 and the text) with pupilread, from the raw EyeLink reports.
 
 Stage 1, on the machine that holds the raw Data Viewer reports (about 20 s per reader, 2 GB of memory):
 
@@ -10,7 +10,7 @@ Stage 2, on a machine with R (lme4, mgcv); the time-course models need about 6 G
     python tools/reproduce_paper.py analyse --cache cache --out reproduction [--gamm] [--kcheck] [--old OLD]
 
 Stage 2 adds the study's local text density (from the interest-area reports copied in stage 1), runs the package's
-pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 3 and S1 with the package's
+pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 4 and S1 with the package's
 R scripts, recomputes the numbers quoted in the text and compares them with the values printed in the paper. With
 --old (the folder of the original scripts' per_reader/ and results/), it also compares every trial value and every
 20 ms bin with the outputs of the original scripts.
@@ -323,7 +323,7 @@ def add_ink(bins, ia_folder, window=(500, 20000)):
 
 #: Values of the first full-study draft, from the original scripts; ``prepare --legacy`` reproduces them exactly.
 #: (estimate, lo, hi, p) for models, (value, decimals) or ("about", value, tolerance) for single numbers.
-ORIGINAL_TABLE3 = {
+ORIGINAL_TABLE4 = {
     "change_0_20s": (1.27, -0.28, 2.83, .108), "fixations": (1.32, -0.36, 3.00, .124),
     "valid_75": (1.53, -0.03, 3.10, .054), "baseline_0_500": (1.45, 0.06, 2.83, .041),
     "low_baselines_kept": (1.03, -0.56, 2.62, .204), "no_baseline": (1.39, 0.51, 2.28, .002),
@@ -384,11 +384,11 @@ ORIGINAL_TEXT = {  # name: (value printed, decimals)
     "S2 k-check readers": (23, 0), "S2 k-check trials": (488, 0),
     "S2 k-check, k = 3: estimate (%)": (2.27, 2), "S2 k-check, k = 3: lower (%)": (0.26, 2), "S2 k-check, k = 3: upper (%)": (4.28, 2),
     "S2 k-check, k = 5: estimate (%)": (2.25, 2), "S2 k-check, k = 5: lower (%)": (0.23, 2), "S2 k-check, k = 5: upper (%)": (4.27, 2),
-    "5 smallest estimate in Table 3 (%)": (0.54, 2), "5 largest estimate in Table 3 (%)": (2.04, 2),
+    "5 smallest estimate in Table 4 (%)": (0.54, 2), "5 largest estimate in Table 4 (%)": (2.04, 2),
 }
 
-#: Values printed in the paper (Table 3, Table S1, text), from pupilread 1.0.0 with its defaults.
-TABLE3 = {
+#: Values printed in the paper (Table 4, Table S1, text), from pupilread 1.0.0 with its defaults.
+TABLE4 = {
     "change_0_20s": (1.37, -0.20, 2.94, .087), "fixations": (1.38, -0.31, 3.07, .110),
     "valid_75": (1.58, 0.00, 3.16, .049), "baseline_0_500": (1.51, 0.12, 2.90, .033),
     "low_baselines_kept": (1.13, -0.48, 2.74, .168), "no_baseline": (1.36, 0.48, 2.25, .003),
@@ -428,6 +428,9 @@ TEXT.update({
     "3.5 blink rate, simplified (per s)": (0.32, 2),
     "3.6 trials excluded as skimmed or incomplete": (61, 0),
     "3.6 grand mean: median difference from 3 s (percentage points)": (1.6, 1),
+    "3.6 trials with residual downward spikes (%)": (26, 0),
+    "3.6 valid reading time per residual spike (s, about 80)": ("about", 80, 5),
+    "3.6 residual spikes removed: estimate (%)": (1.36, 2), "3.6 residual spikes removed: p": (0.092, 3),
     "3.7 fixations from 0.5 to 20 s": (54227, 0), "3.7 fixation-level t": (11.60, 2),
     "3.7 paired t-test on reader means, p": (0.080, 3),
     "3.7 control predictors, no adjustment on the same bins (%)": (1.35, 2),
@@ -444,7 +447,7 @@ TEXT.update({
     "S2 k-check trials": (487, 0),
     "S2 k-check, k = 3: estimate (%)": (2.31, 2), "S2 k-check, k = 3: lower (%)": (0.30, 2), "S2 k-check, k = 3: upper (%)": (4.33, 2),
     "S2 k-check, k = 5: estimate (%)": (2.29, 2), "S2 k-check, k = 5: lower (%)": (0.27, 2), "S2 k-check, k = 5: upper (%)": (4.31, 2),
-    "5 smallest estimate in Table 3 (%)": (0.63, 2), "5 largest estimate in Table 3 (%)": (1.96, 2),
+    "5 smallest estimate in Table 4 (%)": (0.63, 2), "5 largest estimate in Table 4 (%)": (1.96, 2),
 })
 
 
@@ -481,7 +484,7 @@ def _power(dz, power=0.8):
         return optimize.brentq(f, 2.5, 400)
 
 
-def text_numbers(res, data, T, cache, gamm=None):
+def text_numbers(res, data, T, cache, gamm=None, spikes=None):
     """The numbers quoted in the text, recomputed from the package's outputs."""
     out = {}
     D = data.trials
@@ -615,6 +618,12 @@ def text_numbers(res, data, T, cache, gamm=None):
     dd = (p2["simplified"] - p2["non-simplified"]).dropna()
     out["3.6 grand mean: median difference from 3 s (percentage points)"] = float(dd[dd.index >= 3].median())
     out["_grand_mean"] = gm2
+    if spikes is not None:                       # residual spikes in the overlays of the analysed trials
+        sm = spike_summary(data.bins, spikes, an)
+        out["3.6 trials with residual downward spikes (%)"] = sm["pct_trials"]
+        out["3.6 valid reading time per residual spike (s, about 80)"] = sm["s_per_event"]
+        out["_residual_spikes"] = {k: v for k, v in sm.items() if k != "per_trial"}
+        out["_residual_spikes_per_trial"] = sm["per_trial"]
     # 3.7 naive fixation-level test
     from scipy import stats
     F = data.levels.copy()
@@ -652,6 +661,78 @@ def text_numbers(res, data, T, cache, gamm=None):
     return out
 
 
+SPIKE_DROP = 20               # residual spikes: points of the reader mean below both shoulders (Section 3.6)
+SPIKE_SHOULDERS = (60, 200)   # ms before and after a bin that form its shoulders
+
+
+def residual_spikes(bins: pd.DataFrame, means: pd.Series, min_drop: float = SPIKE_DROP,
+                    shoulders=SPIKE_SHOULDERS) -> pd.DataFrame:
+    """Brief downward spikes left after blink removal (Section 3.6; Mathôt & Vilotijević, 2023, Fig. 7a).
+
+    A valid 20 ms bin is a spike when its pupil size, as a percentage of the reader mean, lies more than ``min_drop``
+    points below the lower of two shoulders: the median of the valid bins 60 to 200 ms before it and the median of those
+    60 to 200 ms after it (one shoulder suffices next to a gap). Slow changes and steps leave one shoulder close to the
+    bin; only a drop that recovers within about 200 ms clears both. Returns one row per bin of ``bins`` (same index)
+    with ``drop`` and ``spike``.
+    """
+    import warnings
+    from numpy.lib.stride_tricks import sliding_window_view
+    bin_ms = float((bins.attrs or {}).get("bin_ms", 20))
+    k0, k1 = int(round(shoulders[0] / bin_ms)), int(round(shoulders[1] / bin_ms))
+    ok = np.asarray(pr._utils.ok_mask(bins), bool)
+    pct = 100 * bins["pupil"].to_numpy(float) / bins["reader"].map(means).to_numpy(float)
+    drop = np.full(len(bins), np.nan)
+    pos = np.rint(bins["time"].to_numpy(float) / bin_ms).astype(np.int64)
+    for _, idx in bins.groupby(["reader", "trial"], sort=False).indices.items():
+        idx = idx[ok[idx]]
+        if len(idx) < 2:
+            continue
+        p = pos[idx] - pos[idx].min()
+        dense = np.full(p.max() + 1 + 2 * k1, np.nan)
+        dense[p + k1] = pct[idx]
+        win = sliding_window_view(dense, 2 * k1 + 1)[p]           # the bins around each valid bin, centred on it
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)       # all-missing shoulders give NaN
+            left = np.nanmedian(win[:, :k1 - k0 + 1], axis=1)
+            right = np.nanmedian(win[:, k1 + k0:], axis=1)
+        ref = np.where(np.isnan(left), right, np.where(np.isnan(right), left, np.minimum(left, right)))
+        drop[idx] = ref - pct[idx]
+    out = pd.DataFrame({"drop": drop}, index=bins.index)
+    out["spike"] = out["drop"] > min_drop
+    return out
+
+
+def spike_summary(bins: pd.DataFrame, spikes: pd.DataFrame, trials: pd.DataFrame) -> dict:
+    """Share of the given trials with a residual spike, spike events and valid reading time per event."""
+    key = ["reader", "trial"]
+    b = bins[key + ["time", "version"]].join(spikes)
+    b = b.merge(trials[key], on=key)
+    per = b.groupby(key + ["version"])["spike"].any().reset_index()
+    ev = b[b["spike"]].sort_values(key + ["time"])
+    new = (ev.groupby(key)["time"].diff().fillna(np.inf) > 60).to_numpy()     # bins within 60 ms form one event
+    n_ev = int(new.sum())
+    valid_s = float(pr._utils.ok_mask(bins.merge(trials[key], on=key)).sum()) * float((bins.attrs or {}).get("bin_ms", 20)) / 1000
+    return {"per_trial": per, "events": n_ev, "valid_s": valid_s,
+            "pct_trials": 100 * float(per["spike"].mean()), "s_per_event": valid_s / n_ev if n_ev else np.nan,
+            "pct_by_version": (100 * per.groupby("version")["spike"].mean()).to_dict()}
+
+
+def spikes_removed(bins: pd.DataFrame, spikes: pd.DataFrame, means: pd.Series) -> pd.DataFrame:
+    """The primary trial measure after removing each residual spike and the bins next to it (Section 3.6)."""
+    bin_ms = float((bins.attrs or {}).get("bin_ms", 20))
+    b = bins.sort_values(["reader", "trial", "time"], kind="mergesort")
+    s = spikes.loc[b.index, "spike"].to_numpy(bool)
+    t = b["time"].to_numpy(float)
+    same = ((b["reader"] == b["reader"].shift(1)) & (b["trial"] == b["trial"].shift(1))).to_numpy()
+    near = same & (np.r_[np.inf, np.diff(t)] <= bin_ms + 1e-6)              # bin i - 1 is the bin just before bin i
+    wide = s | (np.r_[False, s[:-1]] & near) | (np.r_[s[1:], False] & np.r_[near[1:], False])
+    b = b.copy()
+    b["ok"] = np.asarray(pr._utils.ok_mask(b), bool) & ~wide
+    b = pr.baseline(b, window=(0, 200), method="subtractive", scale="reader_mean", means=means)
+    tm = pr.trial_means(b, window=(500, 20000), name="spikes_removed")
+    return tm[["reader", "trial", "spikes_removed"]]
+
+
 def control_ladder(res, data):
     """Trial means adjusted for nested sets of control predictors on the same bins (Section 3.7)."""
     b = pr.add_covariates(res.bins, fixations=data.fixations, center=(512, 384), px_per_degree=PX_PER_DEGREE)
@@ -676,9 +757,9 @@ def _fmt(v, d):
 
 
 def compare_models(mv, gamm, refs=None):
-    t3, s1, ntr = refs or (TABLE3, TABLE_S1, N_TRIALS)
+    t4, s1, ntr = refs or (TABLE4, TABLE_S1, N_TRIALS)
     rows = []
-    for table, ref in (("3", t3), ("S1", s1)):
+    for table, ref in (("4", t4), ("S1", s1)):
         for name, (e, lo, hi, p) in ref.items():
             if name.startswith("GAMM"):
                 if gamm is None:
@@ -872,7 +953,7 @@ def cmd_analyse(a):
     legacy = is_legacy(a.cache)
     global ROUND_UP
     ROUND_UP = not legacy
-    refs = (ORIGINAL_TABLE3, ORIGINAL_TABLE_S1, ORIGINAL_N_TRIALS) if legacy else (TABLE3, TABLE_S1, N_TRIALS)
+    refs = (ORIGINAL_TABLE4, ORIGINAL_TABLE_S1, ORIGINAL_N_TRIALS) if legacy else (TABLE4, TABLE_S1, N_TRIALS)
     text_ref = ORIGINAL_TEXT if legacy else TEXT
     print("compared with the values of the " + ("original scripts (legacy cache)" if legacy else "paper"), flush=True)
     state = os.path.join(a.out, "state.pkl")
@@ -881,6 +962,7 @@ def cmd_analyse(a):
         with open(state, "rb") as fh:
             data, res, T, ladder = pickle.load(fh)
         print(f"pooled results read from {state}", flush=True)
+        spk = residual_spikes(data.bins, pr.reader_means(data.bins))
     else:
         data = pr.prepare_readers(None, cfg, cache=a.cache, verbose=False)
         print(f"{len(data.readers)} readers read from the cache ({time.time() - t0:.0f} s)", flush=True)
@@ -890,6 +972,10 @@ def cmd_analyse(a):
         T = res.options.copy()
         ladder, ksl = control_ladder(res, data)
         T = T.merge(ladder, on=["reader", "trial"], how="left")
+        rm_all = pr.reader_means(data.bins)
+        spk = residual_spikes(data.bins, rm_all)
+        T = T.merge(spikes_removed(data.bins, spk, rm_all), on=["reader", "trial"], how="left")
+        T.loc[T["change_0_20s"].isna(), "spikes_removed"] = np.nan      # the same trials as the primary estimate
         spec = pd.DataFrame(res.options.attrs["options"])
         labels = {"K0": "Control predictors: none, same bins", "K1": "Control predictors: time",
                   "K2": "Control predictors: + gaze x, y, eccentricity", "K3": "Control predictors: + local text density",
@@ -897,6 +983,9 @@ def cmd_analyse(a):
         spec = pd.concat([spec, pd.DataFrame([dict(column=f"controls_{k}", label=v, random="slope", covariates="",
                                                    term="contrast", section="3.7", table="text")
                                               for k, v in labels.items()])], ignore_index=True)
+        spec = pd.concat([spec, pd.DataFrame([dict(column="spikes_removed", label="Residual spikes removed",
+                                                   random="slope", covariates="", term="contrast", section="3.6",
+                                                   table="text")])], ignore_index=True)
         T.attrs = {"options": spec.to_dict("records")}
         files = pr.export_for_r(T, res.bins, os.path.join(a.out, "for_R"), reference="non-simplified", config=cfg)
         res.files.update(files)
@@ -919,7 +1008,7 @@ def cmd_analyse(a):
     mv = pd.read_csv(os.path.join(fr, "multiverse_results.csv"))
     cm = compare_models(mv, gamm, refs)
     cm.to_csv(os.path.join(a.out, "compare_tables.csv"), index=False)
-    nums = text_numbers(res, data, T, a.cache, gamm)
+    nums = text_numbers(res, data, T, a.cache, gamm, spikes=spk)
     if gamm is not None:
         log = open(os.path.join(fr, "gamm", "gamm_log.txt")).read()
         import re
@@ -937,14 +1026,17 @@ def cmd_analyse(a):
         if "n_readers" in K.columns:
             nums["S2 k-check readers"] = int(K.loc[0, "n_readers"])
             nums["S2 k-check trials"] = int(K.loc[0, "n_trials"])
-    t3 = cm[(cm["table"] == "3") & cm["estimate"].notna()] if "estimate" in cm.columns else cm.iloc[0:0]
-    if len(t3):
-        nums["5 smallest estimate in Table 3 (%)"] = float(t3["estimate"].min())
-        nums["5 largest estimate in Table 3 (%)"] = float(t3["estimate"].max())
+    t4 = cm[(cm["table"] == "4") & cm["estimate"].notna()] if "estimate" in cm.columns else cm.iloc[0:0]
+    if len(t4):
+        nums["5 smallest estimate in Table 4 (%)"] = float(t4["estimate"].min())
+        nums["5 largest estimate in Table 4 (%)"] = float(t4["estimate"].max())
     k0 = mv.set_index("column")["estimate"]
     nums["3.7 control predictors, no adjustment on the same bins (%)"] = float(k0.get("controls_K0", np.nan))
     nums["3.7 control predictors, all (%)"] = float(k0.get("controls_K4", np.nan))
     nums["3.7 text density changed the estimate by (percentage points)"] = float(k0.get("controls_K3", np.nan) - k0.get("controls_K2", np.nan))
+    if "spikes_removed" in k0.index:
+        nums["3.6 residual spikes removed: estimate (%)"] = float(k0["spikes_removed"])
+        nums["3.6 residual spikes removed: p"] = float(mv.set_index("column").loc["spikes_removed", "p"])
     ct = compare_text(nums, text_ref)
     ct.to_csv(os.path.join(a.out, "compare_text.csv"), index=False)
     f2 = os.path.join(a.cache, FIGURE2[0], "figure2_trial.csv.gz")
