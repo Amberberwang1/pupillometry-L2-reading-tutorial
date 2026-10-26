@@ -57,6 +57,11 @@ def test_python_2_to_4_stage_boxes(study):
     assert len(env4["fixations"]) and len(env4["slopes"]) == 1
     b = env4["bins"]
     assert {"pupil_corrected", "change"} <= set(b.columns) and b.attrs["baseline"]["column"] == "pupil_corrected"
+    alt = [ln.split("# alternative: ", 1)[1] for ln in box("python4.py").splitlines() if ln.startswith("# alternative: ")]
+    env5 = {"pr": pr, "bins": pr.bin(env["samples"], bin_ms=20, min_valid=0.5)}     # the commented alternative line
+    run_in(folder, alt[0], env5)
+    assert len(alt) == 1 and env5["bins"].attrs["gaze_correction"] == "geometric"
+    assert np.isfinite(env5["bins"]["pupil_corrected"]).any()
 
 
 R_SETUP_1 = "suppressMessages(library(lme4))\n"
