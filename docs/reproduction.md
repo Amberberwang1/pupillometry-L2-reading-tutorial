@@ -1,6 +1,6 @@
 # Reproducing the paper with pupilread
 
-With its defaults, pupilread reproduces 32 of the 32 model estimates of Tables 4 and S1 (to the printed digits, with the printed trial counts) and 74 of the 74 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
+With its defaults, pupilread reproduces 33 of the 33 model estimates of Tables 3 and S1 (to the printed digits, with the printed trial counts) and 74 of the 74 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
 
 Run on the 45 readers' Data Viewer reports (not included: participant data):
 
@@ -16,27 +16,27 @@ python tools/reproduction_report.py reproduction reproduction_legacy docs/reprod
 
 The original scripts made three assumptions that pupilread corrects (`CHANGELOG.md`): durations counted in samples assumed 1,000 Hz, although 6 of the 45 recordings were made at 2,000 Hz; blink padding summed blink flags in 8-bit integers, which overflow where blinks fill more than 127 of the 201 samples around a sample, so short gaps between blinks stayed valid; and one reader's reports listed every row twice. The repeated rows also doubled that reader's word counts in the companion study's screen for skimmed texts, so five of the reader's trials crossed its reading-rate ceiling; `reproduce_paper.py` recomputes the screen for that reader without the repeats (61 trials excluded as skimmed or incomplete, against 66). The paper reports the corrected values.
 
-## Tables 4 and S1
+## Tables 3 and S1
 
 | Table | Option | Paper (pupilread defaults) | Status | Draft (original scripts) | Legacy mode | Trials (paper, draft) |
 | --- | --- | --- | --- | --- | --- | --- |
-| 4 | change_0_20s | 1.37 [−0.20, 2.94], p = .087 | match | 1.27 [−0.28, 2.83], p = .108 | match | 986, 982 |
-| 4 | fixations | 1.38 [−0.31, 3.07], p = .110 | match | 1.32 [−0.36, 3.00], p = .124 | match | 924, 919 |
-| 4 | valid_75 | 1.58 [0.00, 3.16], p = .049 | match | 1.53 [−0.03, 3.10], p = .054 | match | 930, 927 |
-| 4 | baseline_0_500 | 1.51 [0.12, 2.90], p = .033 | match | 1.45 [0.06, 2.83], p = .041 | match | 986, 982 |
-| 4 | low_baselines_kept | 1.13 [−0.48, 2.74], p = .168 | match | 1.03 [−0.56, 2.62], p = .204 | match | 988, 984 |
-| 4 | no_baseline | 1.36 [0.48, 2.25], p = .003 | match | 1.39 [0.51, 2.28], p = .002 | match | 986, 982 |
-| 4 | baseline_covariate | 1.36 [0.51, 2.20], p = .002 | match | 1.36 [0.51, 2.20], p = .002 | match | 986, 982 |
-| 4 | diameter | 0.71 [−0.04, 1.47], p = .063 | match | 0.67 [−0.07, 1.42], p = .078 | match | 986, 982 |
-| 4 | whole_trial | 1.67 [0.11, 3.23], p = .036 | match | 1.58 [0.04, 3.12], p = .045 | match | 986, 982 |
-| 4 | random_intercepts | 1.35 [−0.07, 2.78], p = .062 | match | 1.26 [−0.16, 2.68], p = .082 | match | 986, 982 |
-| 4 | control_predictors | 0.89 [−0.67, 2.44], p = .263 | match | 0.81 [−0.73, 2.34], p = .303 | match | 986, 982 |
-| 4 | gaze_regression | 1.26 [−0.48, 2.99], p = .155 | match | 1.16 [−0.55, 2.87], p = .184 | match | 986, 982 |
-| 4 | gaze_steps_eye | 1.85 [0.06, 3.63], p = .042 | match | 1.75 [−0.03, 3.52], p = .054 | match | 986, 982 |
-| 4 | gaze_steps_type | 0.63 [−0.94, 2.19], p = .434 | match | 0.54 [−1.02, 2.09], p = .499 | match | 986, 982 |
-| 4 | GAMM M0 naive | 1.29 [1.16, 1.42], p < .001 | match | 1.22 [1.09, 1.35] | match | 986, 982 |
-| 4 | GAMM M1 no gaze term | 1.33 [−0.22, 2.87], p = .092 | match | 1.23 [−0.29, 2.76], p = .113 | match | 986, 982 |
-| 4 | GAMM M2 gaze surface | 1.96 [0.40, 3.52], p = .014 | match | 2.04 [0.51, 3.58], p = .009 | match | 986, 982 |
+| 3 | change_0_20s | 1.37 [−0.20, 2.94], p = .087 | match | 1.27 [−0.28, 2.83], p = .108 | match | 986, 982 |
+| 3 | fixations | 1.38 [−0.31, 3.07], p = .110 | match | 1.32 [−0.36, 3.00], p = .124 | match | 924, 919 |
+| 3 | valid_75 | 1.58 [0.00, 3.16], p = .049 | match | 1.53 [−0.03, 3.10], p = .054 | match | 930, 927 |
+| 3 | baseline_0_500 | 1.51 [0.12, 2.90], p = .033 | match | 1.45 [0.06, 2.83], p = .041 | match | 986, 982 |
+| 3 | low_baselines_kept | 1.13 [−0.48, 2.74], p = .168 | match | 1.03 [−0.56, 2.62], p = .204 | match | 988, 984 |
+| 3 | no_baseline | 1.36 [0.48, 2.25], p = .003 | match | 1.39 [0.51, 2.28], p = .002 | match | 986, 982 |
+| 3 | baseline_covariate | 1.36 [0.51, 2.20], p = .002 | match | 1.36 [0.51, 2.20], p = .002 | match | 986, 982 |
+| 3 | diameter | 0.71 [−0.04, 1.47], p = .063 | match | 0.67 [−0.07, 1.42], p = .078 | match | 986, 982 |
+| 3 | whole_trial | 1.67 [0.11, 3.23], p = .036 | match | 1.58 [0.04, 3.12], p = .045 | match | 986, 982 |
+| 3 | random_intercepts | 1.35 [−0.07, 2.78], p = .062 | match | 1.26 [−0.16, 2.68], p = .082 | match | 986, 982 |
+| 3 | control_predictors | 0.89 [−0.67, 2.44], p = .263 | match | 0.81 [−0.73, 2.34], p = .303 | match | 986, 982 |
+| 3 | gaze_regression | 1.26 [−0.48, 2.99], p = .155 | match | 1.16 [−0.55, 2.87], p = .184 | match | 986, 982 |
+| 3 | gaze_steps_eye | 1.85 [0.06, 3.63], p = .042 | match | 1.75 [−0.03, 3.52], p = .054 | match | 986, 982 |
+| 3 | gaze_steps_type | 0.63 [−0.94, 2.19], p = .434 | match | 0.54 [−1.02, 2.09], p = .499 | match | 986, 982 |
+| 3 | GAMM M0 naive | 1.29 [1.16, 1.42], p < .001 | match | 1.22 [1.09, 1.35] | match | 986, 982 |
+| 3 | GAMM M1 no gaze term | 1.33 [−0.22, 2.87], p = .092 | match | 1.23 [−0.29, 2.76], p = .113 | match | 986, 982 |
+| 3 | GAMM M2 gaze surface | 1.96 [0.40, 3.52], p = .014 | match | 2.04 [0.51, 3.58], p = .009 | match | 986, 982 |
 | S1 | fixations_same_trials | 1.45 [−0.22, 3.11], p = .088 | match | 1.38 [−0.27, 3.03], p = .101 | match | 924, 919 |
 | S1 | interpolated | 1.37 [−0.20, 2.94], p = .087 | match | 1.27 [−0.28, 2.83], p = .108 | match | 986, 982 |
 | S1 | window_2_20 | 1.49 [−0.12, 3.10], p = .069 | match | 1.40 [−0.19, 2.99], p = .084 | match | 986, 982 |
@@ -52,6 +52,7 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | S1 | gaze_steps_map | 0.93 [−0.69, 2.56], p = .261 | match | 0.84 [−0.78, 2.45], p = .310 | match | 986, 982 |
 | S1 | GAMM M1 without AR1 | 1.34 [−0.26, 2.94], p = .100 | match | 1.24 [−0.33, 2.82], p = .122 | match | 986, 982 |
 | S1 | GAMM M2 without AR1 | 0.85 [−0.56, 2.26], p = .237 | match | 0.79 [−0.77, 2.36], p = .320 | match | 986, 982 |
+| S1 | centroid_only | 1.09 [−0.57, 2.75], p = .198 | match | not in the draft |  | 893, – |
 
 ## Numbers in the text
 
@@ -121,8 +122,8 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | S2 k-check, k = 5: estimate (%) | 2.29 | 2.2918 | match | 2.25 | match |
 | S2 k-check, k = 5: lower (%) | 0.27 | 0.2688 | match | 0.23 | match |
 | S2 k-check, k = 5: upper (%) | 4.31 | 4.3148 | match | 4.27 | match |
-| 5 smallest estimate in Table 4 (%) | 0.63 | 0.6257 | match | 0.54 | match |
-| 5 largest estimate in Table 4 (%) | 1.96 | 1.9619 | match | 2.04 | match |
+| 5 smallest estimate in Table 3 (%) | 0.63 | 0.6257 | match | 0.54 | match |
+| 5 largest estimate in Table 3 (%) | 1.96 | 1.9619 | match | 2.04 | match |
 | 3.3 baseline difference, 0-200 ms: lower (%) | -1.99 | -1.9911 | match |  |  |
 | 3.3 baseline difference, 0-200 ms: upper (%) | 1.71 | 1.7123 | match |  |  |
 | 3.3 baseline difference, 0-500 ms: lower (%) | -1.77 | -1.767 | match |  |  |
