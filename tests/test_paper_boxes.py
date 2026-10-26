@@ -37,7 +37,8 @@ def test_python_1_main_stages(study):
     env = run_in(study["folder"], box("python1.py"), {})
     assert {"change_0_20s", "baseline_pct"} <= set(env["trials"].columns)
     assert {"excluded", "reason"} <= set(env["excluded"].columns) and "low" in env["low"].columns
-    assert (env["trials"]["baseline_pct"] >= 60).all()
+    t, low = env["trials"], env["low"]          # R 1 keeps baseline_pct >= 60: the trials that low leaves unflagged
+    assert set(t.loc[t["baseline_pct"] >= 60, "trial"]) == set(low.loc[~low["low"], "trial"]) & set(t["trial"])
     assert env["samples"]["reader"].iat[0] == "01" and set(env["samples"]["version"]) == {"simplified", "non-simplified"}
     out = os.path.join(study["folder"], "for_R")
     assert os.path.exists(os.path.join(out, "trials.csv")) and os.path.exists(os.path.join(out, "bins.csv"))
