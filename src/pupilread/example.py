@@ -19,6 +19,17 @@ SAMPLE_COLS = ["RECORDING_SESSION_LABEL", "TRIAL_INDEX", "TIMESTAMP", "TRIAL_STA
                "RIGHT_PUPIL_SIZE", "RIGHT_GAZE_X", "RIGHT_GAZE_Y", "RIGHT_IN_BLINK", "RIGHT_IN_SACCADE", "SAMPLE_MESSAGE"]
 #: Simulated artifact per pixel of gaze offset from the screen centre, as a share of pupil size (x, y), by eye.
 ARTIFACT = {"left": (-0.00014, -0.0004), "right": (-0.00006, -0.0001)}
+#: An invented layout (mm) for the example's layout.csv (see pupilread.read_layout): a 400 x 300 mm image at 600 mm,
+#: centred on the head, eyes 200 mm below its top edge, camera lens 180 mm below and 480 mm in front of the eyes.
+EXAMPLE_LAYOUT = [
+    ("image_width", 400, "visible image, mm"), ("image_height", 300, "visible image, mm"),
+    ("width_px", 1024, "pixels"), ("height_px", 768, "pixels"),
+    ("Sx", -200, "upper-left corner of the image, right of the midline (mm)"),
+    ("Sy", 200, "upper-left corner of the image, above the eyes (mm)"), ("Sz", 600, "eyes to screen (mm)"),
+    ("Cx", 0, "camera lens, right of the midline (mm)"), ("Cy", -180, "camera lens, above the eyes (mm)"),
+    ("Cz", 480, "camera lens, in front of the eyes (mm)"), ("eye", "midline", "positions measured from the midline"),
+    ("eye_separation", 64, "between the eyes (mm)"),
+]
 
 
 def _layout(rng, n_lines, words_per_line, x0=100, y0=120, line_h=48, right=920):
@@ -154,8 +165,9 @@ def make_example(folder: str = "pupilread_example", n_readers: int = 3, n_items:
     Returns
     -------
     dict
-        Paths: ``folder``, ``design`` (design.csv), ``exclusions`` (exclusions.csv, one trial flagged as skimmed) and
-        ``readers`` (one dict per reader with its three reports).
+        Paths: ``folder``, ``design`` (design.csv), ``exclusions`` (exclusions.csv, one trial flagged as skimmed),
+        ``layout`` (layout.csv, an invented layout of eye, camera and screen for the geometric correction; the
+        simulated artifact does not follow it) and ``readers`` (one dict per reader with its three reports).
     """
     rng = np.random.default_rng(seed)
     os.makedirs(folder, exist_ok=True)
@@ -229,4 +241,6 @@ def make_example(folder: str = "pupilread_example", n_readers: int = 3, n_items:
     X = pd.DataFrame({"reader": [readers[min(1, n_readers - 1)]["reader"]], "trial": [1], "reason": ["skimmed"]})
     p_x = os.path.join(folder, "exclusions.csv")
     X.to_csv(p_x, index=False)
-    return {"folder": folder, "design": p_d, "exclusions": p_x, "readers": readers}
+    p_l = os.path.join(folder, "layout.csv")
+    pd.DataFrame(EXAMPLE_LAYOUT, columns=["setting", "value", "note"]).to_csv(p_l, index=False)
+    return {"folder": folder, "design": p_d, "exclusions": p_x, "layout": p_l, "readers": readers}

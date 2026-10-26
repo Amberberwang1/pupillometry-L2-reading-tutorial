@@ -38,7 +38,7 @@ def _input_column(bins: pd.DataFrame, column: Optional[str]) -> str:
 def baseline(bins: pd.DataFrame, window: Tuple[float, float] = (0, 200), method: str = "subtractive",
              scale: Optional[str] = "reader_mean", column: Optional[str] = None, min_valid: Optional[float] = None,
              means: Optional[pd.Series] = None) -> pd.DataFrame:
-    """Baseline correction (stage 3.3; Python 2 of the paper).
+    """Baseline correction (stage 3.3; Python 3 of the paper).
 
     Parameters
     ----------

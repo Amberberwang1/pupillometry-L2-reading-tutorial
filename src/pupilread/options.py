@@ -30,7 +30,8 @@ OPTIONAL_CONTROLS = ("ink_fovea", "ink_parafovea")
 #: The options of Table 3 and Table S2 of the paper (trial-level models; the time-course options are fitted by
 #: ``gamm.R``). Keys are the output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
 #: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
-#: (``method`` "regression" with ``time_terms``, or "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map"),
+#: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map", or
+#: "geometric" with ``layout``, by default the ``gaze.layout`` setting of the config),
 #: ``controls`` (and ``optional_controls``, used when present), ``min_baseline_pct``, ``min_valid_trial``, ``subset``,
 #: ``samples`` (sample-level settings, e.g. ``{"blinks": {"pad_ms": 50}}``), and the model: ``random`` ("slope" or
 #: "intercepts"), ``covariates`` and ``term``.
@@ -104,9 +105,10 @@ def _z(v: pd.Series, ref: Optional[pd.Series] = None) -> pd.Series:
 class _Context:
     """Shared intermediate results (reader means, saccade steps) for the options of one table."""
 
-    def __init__(self, data, base_window, window, min_pct, steps, display=None):
+    def __init__(self, data, base_window, window, min_pct, steps, display=None, layout=None):
         self.data = data
         self.display = dict(display or {})
+        self.layout = layout
         self.bins = data.bins
         self.means = reader_means(self.bins)
         self.base_window = tuple(base_window)
@@ -173,6 +175,12 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
             by = g.get("by", "eye")
             sl = step_slopes(ctx.steps, by=by, method=g.get("slopes", "joint"))
             bins = correct_gaze(bins, sl, method="steps", by=by, means=means)
+        elif method == "geometric":
+            layout = g.get("layout", ctx.layout)
+            if layout is None:
+                raise ValueError(f"option {name!r} needs a measured layout (gaze.layout in the config)")
+            bins = correct_gaze(bins, method="geometric", layout=layout)
+            means = reader_means(bins, column="pupil_corrected")
         else:
             raise ValueError(f"options_table: unknown gaze method {method!r} in option {name!r}")
         column = "pupil_corrected"
@@ -254,7 +262,8 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     base_window = tuple(cfg["baseline"]["window"])
     window = tuple(cfg["trial_means"]["window"])
     min_pct = cfg["low_baselines"]["min_pct"]
-    ctx = _Context(data, base_window, window, min_pct, steps, display=cfg.get("display"))
+    ctx = _Context(data, base_window, window, min_pct, steps, display=cfg.get("display"),
+                   layout=(cfg.get("gaze") or {}).get("layout"))
     b0 = baseline(ctx.bins, window=base_window, means=ctx.means)
     T = low_baselines(b0, min_pct=min_pct if min_pct is not None else -np.inf)
     T = T[np.isfinite(T["baseline_pct"])].drop(columns=["low", "reason"]).reset_index(drop=True)

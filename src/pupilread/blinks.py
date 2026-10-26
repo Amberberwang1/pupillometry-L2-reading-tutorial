@@ -14,7 +14,7 @@ from ._utils import (TRIAL_KEY, check_columns, copy_attrs, dilate, ms_to_samples
 
 
 def pad_blinks(samples: pd.DataFrame, pad_ms: float = 100, pupil_range: Tuple[float, float] = (100, 10000)) -> pd.DataFrame:
-    """Pad every blink and set padded and invalid samples to missing (stage 3.2; Python 1 of the paper).
+    """Pad every blink and set padded and invalid samples to missing (stage 3.2; Python 2 of the paper).
 
     Parameters
     ----------

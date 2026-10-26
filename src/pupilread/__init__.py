@@ -20,8 +20,8 @@ from .blinks import (Loss, data_loss, detect_blinks, detector_agreement, exclude
 from .controls import add_covariates, control_predictors
 from .example import make_example
 from .export import export_for_r, gamm_bins, r_script_path
-from .gaze import (MAP_KNOTS, classify_saccades, correct_gaze, hat_basis, regression_slopes, saccade_steps,
-                   step_slopes)
+from .gaze import (LAYOUT_SETTINGS, MAP_KNOTS, classify_saccades, correct_gaze, foreshortening, hat_basis,
+                   read_layout, regression_slopes, saccade_steps, step_slopes)
 from .io import read_csv, read_design, read_eyelink, read_fixations, read_messages, to_diameter, trial_windows
 from .levels import Levels, bin, compare_levels, fixation_means, retained_fixations
 from .options import CONTROLS, OPTIONAL_CONTROLS, PAPER_OPTIONS, options_spec, options_table
@@ -41,6 +41,7 @@ __all__ = [
     "reader_means", "baseline", "low_baselines",
     # 3.4 gaze position
     "saccade_steps", "classify_saccades", "step_slopes", "regression_slopes", "correct_gaze", "hat_basis", "MAP_KNOTS",
+    "read_layout", "foreshortening", "LAYOUT_SETTINGS",
     # 3.5 trial length and events
     "trial_means", "window_name", "event_response", "Events",
     # 3.6 checks and figures

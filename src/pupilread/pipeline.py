@@ -53,7 +53,8 @@ DEFAULTS: Dict = {
     "trials": {"min_valid": 0.5},
     "bin": {"bin_ms": 20, "min_valid": 0.5},
     "levels": {"min_fix_ms": 80},
-    "gaze": {"method": None, "by": "eye", "slopes": "joint", "time_terms": False},
+    "gaze": {"method": None, "by": "eye", "slopes": "joint", "time_terms": False,
+             "layout": None},              # layout: measured layout for method "geometric" (CSV file; read_layout)
     "baseline": {"window": [0, 200], "method": "subtractive", "scale": "reader_mean"},
     "low_baselines": {"min_pct": 60},
     "trial_means": {"window": [500, 20000], "cut_before_keypress_ms": 0},
@@ -489,6 +490,7 @@ def analyse(data: PupilData, config=None) -> Result:
     cfg = load_config(config)
     bins = data.bins
     rm = reader_means(bins)
+    rm_base = rm                        # denominator of the baseline-corrected change
     steps = slopes = None
     if data.fixations is not None and len(data.fixations):
         steps = saccade_steps(bins, data.fixations, means=rm)
@@ -502,15 +504,18 @@ def analyse(data: PupilData, config=None) -> Result:
         slopes = regression_slopes(bins, window=tuple(cfg["baseline"]["window"]), min_baseline_pct=cfg["low_baselines"]["min_pct"] or 0,
                                    time_terms=g.get("time_terms", False), means=rm).to_frame().T
         bins = correct_gaze(bins, slopes.iloc[0], method="regression")
+    elif g.get("method") == "geometric":
+        bins = correct_gaze(bins, method="geometric", layout=g.get("layout"))
+        rm_base = reader_means(bins, column="pupil_corrected")
     elif g.get("method") is not None:
-        raise ValueError("gaze.method must be null, 'steps' or 'regression'")
+        raise ValueError("gaze.method must be null, 'steps', 'regression' or 'geometric'")
     elif steps is not None:
         try:
             slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "joint"))
         except ValueError as e:
             warnings.warn(f"analyse: no step slopes ({e})")
     bc = cfg["baseline"]
-    b = baseline(bins, window=tuple(bc["window"]), method=bc["method"], scale=bc["scale"], means=rm)
+    b = baseline(bins, window=tuple(bc["window"]), method=bc["method"], scale=bc["scale"], means=rm_base)
     lowb = low_baselines(b, min_pct=cfg["low_baselines"]["min_pct"])
     tm = cfg["trial_means"]
     trials = trial_means(b, window=tuple(tm["window"]) if tm["window"][1] is not None else (tm["window"][0], None),

@@ -3,11 +3,15 @@
 Gaze-position (pupil-foreshortening) artifacts change measured pupil size immediately, whereas real pupil responses start
 no earlier than about 220 ms after their cause (Mathot et al., 2018). The step in pupil size across each saccade, from
 just before saccade onset to 20-120 ms after landing, therefore estimates the artifact; regressing the steps on the
-saccade's horizontal and vertical size gives the artifact per pixel of gaze shift (Python 3 of the paper).
+saccade's horizontal and vertical size gives the artifact per pixel of gaze shift (Python 4 of the paper).
+
+The geometric model of Hayes and Petrov (2016) instead predicts the artifact from the measured positions of eye, camera
+and screen (:func:`read_layout`, :func:`foreshortening`), with no parameter estimated from the pupil data.
 """
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Optional, Tuple
 
 import numpy as np
@@ -240,8 +244,110 @@ def regression_slopes(bins: pd.DataFrame, window: Tuple[float, float] = (0, 200)
     return pd.Series({"bX": c[1], "bY": c[2]}, name="regression_within_time")
 
 
+#: Settings of a measured layout for the geometric model (:func:`read_layout`). Positions are in millimetres, in a frame
+#: centred on the eye they were measured from, with x to the right, y up and z towards the screen (Hayes & Petrov, 2016).
+LAYOUT_SETTINGS = {
+    "image_width": "width of the visible image (mm)",
+    "image_height": "height of the visible image (mm)",
+    "width_px": "width of the image (pixels)",
+    "height_px": "height of the image (pixels)",
+    "Sx": "upper-left corner of the image, to the right of the eye (mm; negative to the left)",
+    "Sy": "upper-left corner of the image, above the eye (mm)",
+    "Sz": "eye to screen (mm)",
+    "Cx": "centre of the camera lens, to the right of the eye (mm)",
+    "Cy": "centre of the camera lens, above the eye (mm; negative below)",
+    "Cz": "centre of the camera lens, in front of the eye (mm)",
+    "eye": "point the positions were measured from: 'left' or 'right' eye, or 'midline' between the eyes",
+    "eye_separation": "distance between the centres of the two eyes (mm; default 64)",
+}
+_LAYOUT_NUMBERS = ("image_width", "image_height", "width_px", "height_px", "Sx", "Sy", "Sz", "Cx", "Cy", "Cz")
+
+
+def read_layout(layout) -> dict:
+    """A measured layout of eye, camera and screen for the geometric correction (stage 3.4; Hayes & Petrov, 2016).
+
+    Parameters
+    ----------
+    layout : str, path or dict
+        A CSV file with the columns ``setting`` and ``value``, one row per setting of :data:`LAYOUT_SETTINGS` (other
+        columns, such as a unit or a note, are ignored), or a dict with the same keys. ``eye`` (default "left") names
+        the point the positions were measured from; the other eye lies ``eye_separation`` mm (default 64) to its side,
+        or each eye half of it from the midline.
+
+    Returns
+    -------
+    dict
+        The settings, with numbers as floats.
+    """
+    if isinstance(layout, dict):
+        raw = dict(layout)
+    else:
+        t = pd.read_csv(layout, dtype=str, skipinitialspace=True)
+        t.columns = [str(c).strip().lower() for c in t.columns]
+        if not {"setting", "value"} <= set(t.columns):
+            raise ValueError(f"read_layout: {layout} needs the columns 'setting' and 'value'")
+        raw = {str(k).strip(): str(v).strip() for k, v in zip(t["setting"], t["value"]) if str(k).strip()}
+    unknown = sorted(set(raw) - set(LAYOUT_SETTINGS))
+    if unknown:
+        raise ValueError(f"read_layout: unknown setting(s) {unknown}; expected {list(LAYOUT_SETTINGS)}")
+    missing = [k for k in _LAYOUT_NUMBERS if k not in raw]
+    if missing:
+        raise ValueError(f"read_layout: missing setting(s) {missing}")
+    out = {k: float(raw[k]) for k in _LAYOUT_NUMBERS}
+    out["eye"] = str(raw.get("eye", "left")).strip().lower()
+    out["eye_separation"] = float(raw.get("eye_separation", 64.0))
+    if out["eye"] not in ("left", "right", "midline"):
+        raise ValueError("read_layout: 'eye' must be 'left', 'right' or 'midline'")
+    for k in ("image_width", "image_height", "width_px", "height_px", "Sz", "Cz"):
+        if not out[k] > 0:
+            raise ValueError(f"read_layout: {k} must be positive")
+    return out
+
+
+def _eye_offset(eye, layout: dict) -> np.ndarray:
+    """x position (mm) of each recorded eye relative to the point the layout was measured from."""
+    e = pd.Series(np.asarray(eye, dtype=object)).astype(str).str.lower().to_numpy()
+    sep = layout["eye_separation"]
+    pos = {"left": {"left": 0.0, "right": sep}, "right": {"left": -sep, "right": 0.0},
+           "midline": {"left": -sep / 2, "right": sep / 2}}[layout["eye"]]
+    bad = sorted(set(e) - set(pos))
+    if bad:
+        raise ValueError(f"foreshortening: eye must be 'left' or 'right', found {bad}")
+    return np.array([pos[v] for v in e], float)
+
+
+def foreshortening(bins: pd.DataFrame, layout) -> np.ndarray:
+    """cos theta for every bin: the factor by which measured pupil area shrinks at the bin's gaze position (stage 3.4).
+
+    theta is the angle between the line from the recorded eye to the camera lens and the line from the eye to the gaze
+    position on the screen (Hayes & Petrov, 2016). Gaze pixels are converted to millimetres on the screen with
+    the image size of the layout, and each eye's own horizontal position is used (column ``eye``).
+
+    Parameters
+    ----------
+    bins : DataFrame
+        Bins (or samples) with ``gaze_x``, ``gaze_y`` (pixels from the upper-left corner) and ``eye``.
+    layout : str, path or dict
+        The measured layout (:func:`read_layout`).
+
+    Returns
+    -------
+    ndarray
+        cos theta per row (missing where the gaze position is missing).
+    """
+    lay = layout if isinstance(layout, dict) and "eye_separation" in layout else read_layout(layout)
+    check_columns(bins, ["gaze_x", "gaze_y", "eye"], "foreshortening")
+    dx = _eye_offset(bins["eye"], lay)
+    tx = lay["Sx"] + bins["gaze_x"].to_numpy(float) * lay["image_width"] / lay["width_px"] - dx
+    ty = lay["Sy"] - bins["gaze_y"].to_numpy(float) * lay["image_height"] / lay["height_px"]
+    tz = np.full(len(bins), lay["Sz"])
+    cx, cy, cz = lay["Cx"] - dx, np.full(len(bins), lay["Cy"]), np.full(len(bins), lay["Cz"])
+    num = tx * cx + ty * cy + tz * cz
+    return num / (np.sqrt(tx ** 2 + ty ** 2 + tz ** 2) * np.sqrt(cx ** 2 + cy ** 2 + cz ** 2))
+
+
 def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, by: str = "eye",
-                 means: Optional[pd.Series] = None) -> pd.DataFrame:
+                 means: Optional[pd.Series] = None, layout=None) -> pd.DataFrame:
     """Remove the gaze-position artifact from every bin, before baseline correction (stage 3.4).
 
     Parameters
@@ -252,16 +358,23 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
     slopes : DataFrame or Series
         For ``method="steps"``: :func:`step_slopes` output (% of reader mean per pixel, one row per eye or reader, or
         a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel).
-    method : {None, "steps", "regression"}
-        None (paper's primary estimate) returns the bins unchanged.
+    method : {None, "steps", "regression", "geometric"}
+        None (paper's primary estimate) returns the bins unchanged. "geometric" divides pupil area by cos theta of the
+        measured layout (:func:`foreshortening`; Hayes & Petrov, 2016), or pupil diameter by its square root,
+        following ``bins.attrs['pupil_unit']``; it needs ``layout`` and no ``slopes``.
     by : {"eye", "reader", None}
         Which column of the bins selects the row of ``slopes`` (steps only); None applies one pooled row to all bins.
+    means : Series, optional
+        Reader means for the steps correction (default: :func:`reader_means` of the bins).
+    layout : str, path or dict, optional
+        The measured layout for ``method="geometric"`` (:func:`read_layout`).
 
     Returns
     -------
     DataFrame
-        The bins with ``pupil_corrected``; missing gaze positions are set to the mean gaze position before the
-        artifact is subtracted. Bins whose eye or reader has no row in ``slopes`` get a missing corrected value.
+        The bins with ``pupil_corrected`` (and ``cos_theta`` for the geometric correction); missing gaze positions are
+        set to the mean gaze position before the artifact is removed. Bins whose eye or reader has no row in ``slopes``
+        get a missing corrected value.
     """
     if method is None:
         return bins
@@ -304,6 +417,18 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
     elif method == "regression":
         bx, byy = float(slopes["bX"]), float(slopes["bY"])
         out["pupil_corrected"] = out["pupil"].to_numpy(float) - (bx * xf + byy * yf)
+    elif method == "geometric":
+        if layout is None:
+            raise ValueError("correct_gaze(method='geometric') needs layout= (a CSV file or dict; see read_layout)")
+        check_columns(bins, ["eye"], "correct_gaze")
+        c = foreshortening(pd.DataFrame({"gaze_x": xf, "gaze_y": yf, "eye": out["eye"].to_numpy()}), layout)
+        if not (c > 0).all():
+            warnings.warn("correct_gaze: cos theta is not positive for some bins (check the layout); they are set to "
+                          "missing")
+            c = np.where(c > 0, c, np.nan)
+        power = 0.5 if (bins.attrs or {}).get("pupil_unit", "area") == "diameter" else 1.0
+        out["cos_theta"] = c
+        out["pupil_corrected"] = out["pupil"].to_numpy(float) / c ** power
     else:
-        raise ValueError("correct_gaze: method must be None, 'steps' or 'regression'")
+        raise ValueError("correct_gaze: method must be None, 'steps', 'regression' or 'geometric'")
     return copy_attrs(bins, out, gaze_correction=method)
