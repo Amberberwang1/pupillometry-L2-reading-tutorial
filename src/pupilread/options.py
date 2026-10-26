@@ -27,7 +27,7 @@ from .windows import trial_means
 CONTROLS = ("time_s", "time2", "gaze_x", "gaze_y", "eccentricity", "fix_duration", "next_distance")
 OPTIONAL_CONTROLS = ("ink_fovea", "ink_parafovea")
 
-#: The options of Table 4 and Table S1 of the paper (trial-level models; the time-course options are fitted by
+#: The options of Table 3 and Table S1 of the paper (trial-level models; the time-course options are fitted by
 #: ``gamm.R``). Keys are the output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
 #: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
 #: (``method`` "regression" with ``time_terms``, or "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map"),
@@ -216,7 +216,7 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
         The sample table of one or more readers (:func:`read_eyelink`), which is prepared with the settings of
         ``config`` (:func:`prepare`), or data already prepared by :func:`prepare` or :func:`run_pipeline`.
     options : dict, optional
-        Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 4
+        Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
         and S1). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
     fixations : DataFrame, optional
         Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.

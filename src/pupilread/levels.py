@@ -147,7 +147,7 @@ def compare_levels(samples: pd.DataFrame, fixations: pd.DataFrame, min_fix_ms: f
 
 def fixation_means(fixations: pd.DataFrame, reader_means: pd.Series, window: Tuple[float, Optional[float]] = (500, 20000),
                    baseline: Tuple[float, float] = (0, 200), min_fix_ms: float = 80, name: str = "change_fixations") -> pd.DataFrame:
-    """Trial means from fixation averages instead of samples (the fixation-level option of Table 4).
+    """Trial means from fixation averages instead of samples (the fixation-level option of Table 3).
 
     The baseline is the mean pupil value of retained fixations that overlap the baseline window, the trial value the
     mean of retained fixations that start within ``window``; the change is expressed as % of the reader mean, as for
