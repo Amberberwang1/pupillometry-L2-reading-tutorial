@@ -17,8 +17,15 @@ First release: the pipeline of the tutorial (stages 3.1 to 3.6) as one function 
   report itself and starts from uncorrected bins, with the baseline correction after the gaze correction.
 - `plot_trial()` draws one trial at four stages of the pipeline: the raw samples, the samples after blink padding
   and removal, the 20 ms bins and the baseline-corrected change (Figure 2 of the paper). Docstrings that cite the
-  paper's figures and tables follow its numbering (the pupil signals are now Figure 3, the time-course difference
-  Figure 4; the gaze-correction approaches are Table 2 and the estimate under each option Table 3).
+  paper's figures, tables and code boxes follow its numbering (the pupil signals are now Figure 3, the time-course
+  difference Figure 4; the gaze-correction approaches are Table 2 and the estimate under each option Table 3; blink
+  padding is Python 2, the baseline correction Python 3 and the gaze correction Python 4).
+- `correct_gaze(method="geometric", layout=...)` corrects pupil size with the geometric model of Hayes and Petrov
+  (2016), from the measured positions of eye, camera and screen (`read_layout`, `foreshortening`): pupil area is
+  divided by cos θ at the gaze position of each 20 ms bin (pupil diameter by its square root), with each recorded eye
+  at its own position. It is also available in the config (`gaze.method: geometric` with `gaze.layout`) and as a gaze
+  option of `options_table`. The example data come with an invented `layout.csv`, Python 4 shows the call as an
+  alternative, and `tools/geometric_vs_pypillometry.py` checks the correction against pypillometry 2.
 - The README lists the Data Viewer reports and columns the package reads, in a table (Table S1 of the paper).
 - The wheel and the source distribution leave out `tools/` (the scripts that reproduce the paper, with their
   `--legacy` mode); they stay in the repository.

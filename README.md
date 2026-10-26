@@ -173,7 +173,26 @@ paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.m
 - **`regression_slopes(bins, time_terms=False)`**: slopes from regressing pupil size on gaze position in the reading
   data (pooled, or within trials with time terms), for comparison.
 - **`correct_gaze(bins, slopes, method=None)`**: subtracts the artifact from every 20 ms bin, before
-  `baseline()`; `method=None` (the paper's primary estimate) leaves the bins unchanged.
+  `baseline()`; `method=None` (the paper's primary estimate) leaves the bins unchanged. With
+  `method="geometric"` and `layout="layout.csv"`, it divides pupil area by cos θ, the foreshortening of the pupil at
+  each bin's gaze position predicted from the measured layout (Hayes & Petrov, 2016), or pupil diameter by its square
+  root; no slopes are needed.
+- **`read_layout(layout)`** and **`foreshortening(bins, layout)`**: the measured layout and cos θ, the cosine of the
+  angle between the lines from the recorded eye to the camera lens and to the gaze position. The layout file has the
+  columns `setting` and `value`, in mm, centred on the eye the positions were measured from (x to the right, y up,
+  z towards the screen):
+
+  | setting | value |
+  | --- | --- |
+  | `image_width`, `image_height` | size of the visible image (mm) |
+  | `width_px`, `height_px` | size of the image in pixels |
+  | `Sx`, `Sy` | upper-left corner of the image relative to the eye |
+  | `Sz` | eye to screen |
+  | `Cx`, `Cy`, `Cz` | centre of the camera lens relative to the eye |
+  | `eye` | `left` (default), `right` or `midline`: where the positions were measured from |
+  | `eye_separation` | distance between the eyes (default 64 mm); each recorded eye is placed at its own position |
+
+  `tools/geometric_vs_pypillometry.py` checks the correction against the geometric model of pypillometry 2.
 
 ### 3.5 Trial length and events
 
@@ -249,7 +268,8 @@ pytest
 ```
 
 The tests use tiny synthetic trials with known answers (a blink of known length is padded to the right length, a
-constant pupil gives zero change, a known gaze artifact is recovered from the saccade steps and removed, and so on)
+constant pupil gives zero change, a known gaze artifact is recovered from the saccade steps and removed, a pupil
+foreshortened by a known layout is restored, and so on)
 and the synthetic example data, on which they also run the paper's code boxes as printed; the R scripts and boxes are
 run when R, lme4 and mgcv are installed.
 
