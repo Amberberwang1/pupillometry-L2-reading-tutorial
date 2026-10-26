@@ -615,7 +615,7 @@ def _write_tables(res: Result, folder: str) -> dict:
 
 
 def _write_plots(res: Result, folder: str) -> dict:
-    from .plots import plot_baselines, plot_gaze, plot_grand_mean, plot_quality, plot_trials
+    from .plots import plot_baselines, plot_gaze, plot_grand_mean, plot_overlays, plot_quality
 
     os.makedirs(folder, exist_ok=True)
     files = {}
@@ -627,7 +627,7 @@ def _write_plots(res: Result, folder: str) -> dict:
         import matplotlib.pyplot as plt
         plt.close(fig)
     try:
-        save(plot_trials(res.bins), "check_trials.png")
+        save(plot_overlays(res.bins), "check_overlays.png")
         save(plot_baselines(res.low_baselines, min_pct=res.config["low_baselines"]["min_pct"] or 0), "check_baselines.png")
         save(plot_grand_mean(res.bins, min_readers=min(20, max(1, len(res.data.readers) // 2))), "grand_mean.png")
         kept = res.data.trials[~res.data.trials["excluded"]]

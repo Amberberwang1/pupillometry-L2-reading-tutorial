@@ -23,7 +23,7 @@ def _levels(df, by):
     return [] if by is None or by not in df.columns else sorted(df[by].dropna().unique(), key=str)
 
 
-def plot_trials(bins: pd.DataFrame, column: str = "change", by: Optional[str] = "version", readers: Optional[Sequence] = None,
+def plot_overlays(bins: pd.DataFrame, column: str = "change", by: Optional[str] = "version", readers: Optional[Sequence] = None,
                 max_readers: int = 6, ncols: int = 3):
     """Trial-level overlays: every trial's trace, one panel per reader, line style by ``by`` (stage 3.6).
 
