@@ -27,7 +27,7 @@ from .windows import trial_means
 CONTROLS = ("time_s", "time2", "gaze_x", "gaze_y", "eccentricity", "fix_duration", "next_distance")
 OPTIONAL_CONTROLS = ("ink_fovea", "ink_parafovea")
 
-#: The options of Table 3 and Table S1 of the paper (trial-level models; the time-course options are fitted by
+#: The options of Table 3 and Table S2 of the paper (trial-level models; the time-course options are fitted by
 #: ``gamm.R``). Keys are the output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
 #: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
 #: (``method`` "regression" with ``time_terms``, or "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map"),
@@ -54,29 +54,29 @@ PAPER_OPTIONS = {
     "gaze_steps_type": dict(label="Saccade steps, slopes by saccade type (exploratory)",
                             gaze=dict(method="steps", by="eye", slopes="by_type"), section="3.4", table="3"),
     "fixations_same_trials": dict(label="Samples, same trials as fixation averages", subset="fixations", section="3.1",
-                                  table="S1"),
-    "window_2_20": dict(label="Window 2-20 s", window=(2000, 20000), section="3.3", table="S1"),
-    "window_3_20": dict(label="Window 3-20 s", window=(3000, 20000), section="3.3", table="S1"),
-    "window_5_20": dict(label="Window 5-20 s", window=(5000, 20000), section="3.3", table="S1"),
-    "left_eye": dict(label="Left-eye readers", subset={"eye": "left"}, section="3.4", table="S1"),
-    "right_eye": dict(label="Right-eye readers", subset={"eye": "right"}, section="3.4", table="S1"),
+                                  table="S2"),
+    "window_2_20": dict(label="Window 2-20 s", window=(2000, 20000), section="3.3", table="S2"),
+    "window_3_20": dict(label="Window 3-20 s", window=(3000, 20000), section="3.3", table="S2"),
+    "window_5_20": dict(label="Window 5-20 s", window=(5000, 20000), section="3.3", table="S2"),
+    "left_eye": dict(label="Left-eye readers", subset={"eye": "left"}, section="3.4", table="S2"),
+    "right_eye": dict(label="Right-eye readers", subset={"eye": "right"}, section="3.4", table="S2"),
     "whole_trial_covariates": dict(label="Whole trial + duration, blink and saccade rates", window=(500, None),
-                                   covariates=["duration_z", "blink_z", "saccade_z"], section="3.5", table="S1"),
+                                   covariates=["duration_z", "blink_z", "saccade_z"], section="3.5", table="S2"),
     "cut_1s": dict(label="Last 1 s before the key press removed", cut_before_keypress_ms=1000, section="3.5",
-                   table="S1"),
+                   table="S2"),
     "cut_2s": dict(label="Last 2 s before the key press removed", cut_before_keypress_ms=2000, section="3.5",
-                   table="S1"),
+                   table="S2"),
     "gaze_regression_time": dict(label="Regression slopes with time", gaze=dict(method="regression", time_terms=True),
-                                 section="3.4", table="S1"),
+                                 section="3.4", table="S2"),
     "gaze_steps_reader": dict(label="Saccade steps, slopes per reader", gaze=dict(method="steps", by="reader"),
-                              section="3.4", table="S1"),
+                              section="3.4", table="S2"),
     "gaze_steps_map": dict(label="Saccade steps, horizontal map (exploratory)",
-                           gaze=dict(method="steps", by="eye", slopes="map"), section="3.4", table="S1"),
-    "interpolated": dict(label="Blinks interpolated", interpolated=True, section="3.2", table="S1"),
+                           gaze=dict(method="steps", by="eye", slopes="map"), section="3.4", table="S2"),
+    "interpolated": dict(label="Blinks interpolated", interpolated=True, section="3.2", table="S2"),
     "baseline_denominator": dict(label="Reader-baseline denominator", baseline=dict(scale="baseline_mean"),
-                                 section="3.3", table="S1"),
+                                 section="3.3", table="S2"),
     "version_x_eye": dict(label="Version x eye interaction (left minus right)", covariates=["eye_c", "contrast:eye_c"],
-                          term="contrast:eye_c", section="3.4", table="S1"),
+                          term="contrast:eye_c", section="3.4", table="S2"),
 }
 
 _MODEL_KEYS = ("label", "section", "table", "random", "covariates", "term")
@@ -217,7 +217,7 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
         ``config`` (:func:`prepare`), or data already prepared by :func:`prepare` or :func:`run_pipeline`.
     options : dict, optional
         Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
-        and S1). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
+        and S2). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
     fixations : DataFrame, optional
         Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
     config : dict or str, optional
