@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reproduce the numbers of the tutorial (Tables 4 and S1 and the text) with pupilread, from the raw EyeLink reports.
+"""Reproduce the numbers of the tutorial (Tables 3 and S1 and the text) with pupilread, from the raw EyeLink reports.
 
 Stage 1, on the machine that holds the raw Data Viewer reports (about 20 s per reader, 2 GB of memory):
 
@@ -10,13 +10,14 @@ Stage 2, on a machine with R (lme4, mgcv); the time-course models need about 6 G
     python tools/reproduce_paper.py analyse --cache cache --out reproduction [--gamm] [--kcheck] [--old OLD]
 
 Stage 2 adds the study's local text density (from the interest-area reports copied in stage 1), runs the package's
-pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 4 and S1 with the package's
+pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 3 and S1 with the package's
 R scripts, recomputes the numbers quoted in the text and compares them with the values printed in the paper. With
 --old (the folder of the original scripts' per_reader/ and results/), it also compares every trial value and every
 20 ms bin with the outputs of the original scripts.
 
-Everything study-specific is in this file: the reader list, the reading sets and their version order, the exclusions
-of skimmed texts, the display (20.7 px per degree) and the text layout behind local text density.
+Everything study-specific is in this file: the reader list, the readers recorded in ellipse mode, the reading sets and
+their version order, the exclusions of skimmed texts, the display (20.7 px per degree) and the text layout behind
+local text density.
 """
 from __future__ import annotations
 
@@ -43,6 +44,9 @@ IA_READERS = {"Set 1": ("01", "02"), "Set 2": ("03", "04")}   # layout from the 
 PX_PER_DEGREE = 20.7
 N_ITEMS = 24
 FIGURE2 = ("01", 5)          # reader and trial of Figure 2 (one trial at four stages of the pipeline)
+#: Readers whose message reports show the tracker's ellipse-fitting pupil mode (ELCL_PROC ELLIPSE) in every trial; the
+#: others were recorded in centroid mode. Readers 27 and 34 were also recorded in ellipse mode but are excluded.
+ELLIPSE_READERS = ("28", "29", "35", "36")
 
 
 def reading_set(r: str) -> str:
@@ -323,7 +327,7 @@ def add_ink(bins, ia_folder, window=(500, 20000)):
 
 #: Values of the first full-study draft, from the original scripts; ``prepare --legacy`` reproduces them exactly.
 #: (estimate, lo, hi, p) for models, (value, decimals) or ("about", value, tolerance) for single numbers.
-ORIGINAL_TABLE4 = {
+ORIGINAL_TABLE3 = {
     "change_0_20s": (1.27, -0.28, 2.83, .108), "fixations": (1.32, -0.36, 3.00, .124),
     "valid_75": (1.53, -0.03, 3.10, .054), "baseline_0_500": (1.45, 0.06, 2.83, .041),
     "low_baselines_kept": (1.03, -0.56, 2.62, .204), "no_baseline": (1.39, 0.51, 2.28, .002),
@@ -384,11 +388,11 @@ ORIGINAL_TEXT = {  # name: (value printed, decimals)
     "S2 k-check readers": (23, 0), "S2 k-check trials": (488, 0),
     "S2 k-check, k = 3: estimate (%)": (2.27, 2), "S2 k-check, k = 3: lower (%)": (0.26, 2), "S2 k-check, k = 3: upper (%)": (4.28, 2),
     "S2 k-check, k = 5: estimate (%)": (2.25, 2), "S2 k-check, k = 5: lower (%)": (0.23, 2), "S2 k-check, k = 5: upper (%)": (4.27, 2),
-    "5 smallest estimate in Table 4 (%)": (0.54, 2), "5 largest estimate in Table 4 (%)": (2.04, 2),
+    "5 smallest estimate in Table 3 (%)": (0.54, 2), "5 largest estimate in Table 3 (%)": (2.04, 2),
 }
 
-#: Values printed in the paper (Table 4, Table S1, text), from pupilread 1.0.0 with its defaults.
-TABLE4 = {
+#: Values printed in the paper (Table 3, Table S1, text), from pupilread 1.0.0 with its defaults.
+TABLE3 = {
     "change_0_20s": (1.37, -0.20, 2.94, .087), "fixations": (1.38, -0.31, 3.07, .110),
     "valid_75": (1.58, 0.00, 3.16, .049), "baseline_0_500": (1.51, 0.12, 2.90, .033),
     "low_baselines_kept": (1.13, -0.48, 2.74, .168), "no_baseline": (1.36, 0.48, 2.25, .003),
@@ -408,9 +412,10 @@ TABLE_S1 = {
     "cut_2s": (1.37, -0.20, 2.93, .087), "gaze_regression_time": (1.23, -0.47, 2.94, .156),
     "gaze_steps_reader": (0.91, -1.19, 3.00, .396), "gaze_steps_map": (0.93, -0.69, 2.56, .261),
     "GAMM M1 without AR1": (1.34, -0.26, 2.94, .100), "GAMM M2 without AR1": (0.85, -0.56, 2.26, .237),
+    "centroid_only": (1.09, -0.57, 2.75, .198),
 }
 N_TRIALS = {"default": 986, "fixations": 924, "fixations_same_trials": 924, "valid_75": 930, "low_baselines_kept": 988,
-            "left_eye": 477, "right_eye": 509}
+            "left_eye": 477, "right_eye": 509, "centroid_only": 893}
 TEXT = dict(ORIGINAL_TEXT)
 TEXT.update({
     "3.2 samples lost (%)": (10.1, 1), "3.2 lost to blink padding (%)": (6.0, 1),
@@ -447,7 +452,7 @@ TEXT.update({
     "S2 k-check trials": (487, 0),
     "S2 k-check, k = 3: estimate (%)": (2.31, 2), "S2 k-check, k = 3: lower (%)": (0.30, 2), "S2 k-check, k = 3: upper (%)": (4.33, 2),
     "S2 k-check, k = 5: estimate (%)": (2.29, 2), "S2 k-check, k = 5: lower (%)": (0.27, 2), "S2 k-check, k = 5: upper (%)": (4.31, 2),
-    "5 smallest estimate in Table 4 (%)": (0.63, 2), "5 largest estimate in Table 4 (%)": (1.96, 2),
+    "5 smallest estimate in Table 3 (%)": (0.63, 2), "5 largest estimate in Table 3 (%)": (1.96, 2),
 })
 
 
@@ -757,9 +762,9 @@ def _fmt(v, d):
 
 
 def compare_models(mv, gamm, refs=None):
-    t4, s1, ntr = refs or (TABLE4, TABLE_S1, N_TRIALS)
+    t3, s1, ntr = refs or (TABLE3, TABLE_S1, N_TRIALS)
     rows = []
-    for table, ref in (("4", t4), ("S1", s1)):
+    for table, ref in (("3", t3), ("S1", s1)):
         for name, (e, lo, hi, p) in ref.items():
             if name.startswith("GAMM"):
                 if gamm is None:
@@ -953,7 +958,7 @@ def cmd_analyse(a):
     legacy = is_legacy(a.cache)
     global ROUND_UP
     ROUND_UP = not legacy
-    refs = (ORIGINAL_TABLE4, ORIGINAL_TABLE_S1, ORIGINAL_N_TRIALS) if legacy else (TABLE4, TABLE_S1, N_TRIALS)
+    refs = (ORIGINAL_TABLE3, ORIGINAL_TABLE_S1, ORIGINAL_N_TRIALS) if legacy else (TABLE3, TABLE_S1, N_TRIALS)
     text_ref = ORIGINAL_TEXT if legacy else TEXT
     print("compared with the values of the " + ("original scripts (legacy cache)" if legacy else "paper"), flush=True)
     state = os.path.join(a.out, "state.pkl")
@@ -986,6 +991,12 @@ def cmd_analyse(a):
         spec = pd.concat([spec, pd.DataFrame([dict(column="spikes_removed", label="Residual spikes removed",
                                                    random="slope", covariates="", term="contrast", section="3.6",
                                                    table="text")])], ignore_index=True)
+        if not legacy:      # Table S1: the primary estimate without the readers recorded in ellipse mode
+            T["centroid_only"] = np.where(T["reader"].astype(str).isin(ELLIPSE_READERS), np.nan, T["change_0_20s"])
+            spec = pd.concat([spec, pd.DataFrame([dict(column="centroid_only",
+                                                       label="Without the four ellipse-mode readers", random="slope",
+                                                       covariates="", term="contrast", section="2.2",
+                                                       table="S1")])], ignore_index=True)
         T.attrs = {"options": spec.to_dict("records")}
         files = pr.export_for_r(T, res.bins, os.path.join(a.out, "for_R"), reference="non-simplified", config=cfg)
         res.files.update(files)
@@ -1026,10 +1037,10 @@ def cmd_analyse(a):
         if "n_readers" in K.columns:
             nums["S2 k-check readers"] = int(K.loc[0, "n_readers"])
             nums["S2 k-check trials"] = int(K.loc[0, "n_trials"])
-    t4 = cm[(cm["table"] == "4") & cm["estimate"].notna()] if "estimate" in cm.columns else cm.iloc[0:0]
-    if len(t4):
-        nums["5 smallest estimate in Table 4 (%)"] = float(t4["estimate"].min())
-        nums["5 largest estimate in Table 4 (%)"] = float(t4["estimate"].max())
+    t3 = cm[(cm["table"] == "3") & cm["estimate"].notna()] if "estimate" in cm.columns else cm.iloc[0:0]
+    if len(t3):
+        nums["5 smallest estimate in Table 3 (%)"] = float(t3["estimate"].min())
+        nums["5 largest estimate in Table 3 (%)"] = float(t3["estimate"].max())
     k0 = mv.set_index("column")["estimate"]
     nums["3.7 control predictors, no adjustment on the same bins (%)"] = float(k0.get("controls_K0", np.nan))
     nums["3.7 control predictors, all (%)"] = float(k0.get("controls_K4", np.nan))
