@@ -175,7 +175,7 @@ samples.
 ### `pad_blinks(samples: 'pd.DataFrame', pad_ms: 'float' = 100, pupil_range: 'Tuple[float, float]' = (100, 10000)) -> 'pd.DataFrame'`
 
 ```
-Pad every blink and set padded and invalid samples to missing (stage 3.2; Python 1 of the paper).
+Pad every blink and set padded and invalid samples to missing (stage 3.2; Python 2 of the paper).
 
 Parameters
 ----------
@@ -307,7 +307,7 @@ readers and eyes with different pupil-size units become comparable (Section 3.3)
 ### `baseline(bins: 'pd.DataFrame', window: 'Tuple[float, float]' = (0, 200), method: 'str' = 'subtractive', scale: 'Optional[str]' = 'reader_mean', column: 'Optional[str]' = None, min_valid: 'Optional[float]' = None, means: 'Optional[pd.Series]' = None) -> 'pd.DataFrame'`
 
 ```
-Baseline correction (stage 3.3; Python 2 of the paper).
+Baseline correction (stage 3.3; Python 3 of the paper).
 
 Parameters
 ----------
@@ -435,7 +435,7 @@ Series
     bX and bY in pupil units per pixel (the scale of ``bins['pupil']``).
 ```
 
-### `correct_gaze(bins: 'pd.DataFrame', slopes=None, method: 'Optional[str]' = None, by: 'str' = 'eye', means: 'Optional[pd.Series]' = None) -> 'pd.DataFrame'`
+### `correct_gaze(bins: 'pd.DataFrame', slopes=None, method: 'Optional[str]' = None, by: 'str' = 'eye', means: 'Optional[pd.Series]' = None, layout=None) -> 'pd.DataFrame'`
 
 ```
 Remove the gaze-position artifact from every bin, before baseline correction (stage 3.4).
@@ -448,16 +448,64 @@ bins : DataFrame
 slopes : DataFrame or Series
     For ``method="steps"``: :func:`step_slopes` output (% of reader mean per pixel, one row per eye or reader, or
     a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel).
-method : {None, "steps", "regression"}
-    None (paper's primary estimate) returns the bins unchanged.
+method : {None, "steps", "regression", "geometric"}
+    None (paper's primary estimate) returns the bins unchanged. "geometric" divides pupil area by cos theta of the
+    measured layout (:func:`foreshortening`; Hayes & Petrov, 2016), or pupil diameter by its square root,
+    following ``bins.attrs['pupil_unit']``; it needs ``layout`` and no ``slopes``.
 by : {"eye", "reader", None}
     Which column of the bins selects the row of ``slopes`` (steps only); None applies one pooled row to all bins.
+means : Series, optional
+    Reader means for the steps correction (default: :func:`reader_means` of the bins).
+layout : str, path or dict, optional
+    The measured layout for ``method="geometric"`` (:func:`read_layout`).
 
 Returns
 -------
 DataFrame
-    The bins with ``pupil_corrected``; missing gaze positions are set to the mean gaze position before the
-    artifact is subtracted. Bins whose eye or reader has no row in ``slopes`` get a missing corrected value.
+    The bins with ``pupil_corrected`` (and ``cos_theta`` for the geometric correction); missing gaze positions are
+    set to the mean gaze position before the artifact is removed. Bins whose eye or reader has no row in ``slopes``
+    get a missing corrected value.
+```
+
+### `read_layout(layout) -> 'dict'`
+
+```
+A measured layout of eye, camera and screen for the geometric correction (stage 3.4; Hayes & Petrov, 2016).
+
+Parameters
+----------
+layout : str, path or dict
+    A CSV file with the columns ``setting`` and ``value``, one row per setting of :data:`LAYOUT_SETTINGS` (other
+    columns, such as a unit or a note, are ignored), or a dict with the same keys. ``eye`` (default "left") names
+    the point the positions were measured from; the other eye lies ``eye_separation`` mm (default 64) to its side,
+    or each eye half of it from the midline.
+
+Returns
+-------
+dict
+    The settings, with numbers as floats.
+```
+
+### `foreshortening(bins: 'pd.DataFrame', layout) -> 'np.ndarray'`
+
+```
+cos theta for every bin: the factor by which measured pupil area shrinks at the bin's gaze position (stage 3.4).
+
+theta is the angle between the line from the recorded eye to the camera lens and the line from the eye to the gaze
+position on the screen (Hayes & Petrov, 2016). Gaze pixels are converted to millimetres on the screen with
+the image size of the layout, and each eye's own horizontal position is used (column ``eye``).
+
+Parameters
+----------
+bins : DataFrame
+    Bins (or samples) with ``gaze_x``, ``gaze_y`` (pixels from the upper-left corner) and ``eye``.
+layout : str, path or dict
+    The measured layout (:func:`read_layout`).
+
+Returns
+-------
+ndarray
+    cos theta per row (missing where the gaze position is missing).
 ```
 
 ### `hat_basis(x, knots) -> 'np.ndarray'`
@@ -892,6 +940,7 @@ distorted baseline (to exercise the low-baseline check).
 Returns
 -------
 dict
-    Paths: ``folder``, ``design`` (design.csv), ``exclusions`` (exclusions.csv, one trial flagged as skimmed) and
-    ``readers`` (one dict per reader with its three reports).
+    Paths: ``folder``, ``design`` (design.csv), ``exclusions`` (exclusions.csv, one trial flagged as skimmed),
+    ``layout`` (layout.csv, an invented layout of eye, camera and screen for the geometric correction; the
+    simulated artifact does not follow it) and ``readers`` (one dict per reader with its three reports).
 ```
