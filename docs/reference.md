@@ -352,7 +352,7 @@ DataFrame
 
 ## 3.4 Gaze-position correction
 
-### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=<function classify_saccades at 0x7f777e736f20>) -> 'pd.DataFrame'`
+### `saccade_steps(bins: 'pd.DataFrame', fixations: 'pd.DataFrame', after: 'Tuple[float, float]' = (20, 120), before: 'float' = 100, late: 'Tuple[float, float]' = (300, 600), max_gap_ms: 'float' = 100, start_after_ms: 'float' = 500, min_fix_ms: 'float' = 80, min_bins: 'int' = 3, min_bins_late: 'int' = 8, means: 'Optional[pd.Series]' = None, classify=classify_saccades) -> 'pd.DataFrame'`
 
 ```
 Measure the pupil step across every saccade between two retained fixations (stage 3.4).
@@ -573,7 +573,7 @@ matplotlib Figure
     Four stacked panels sharing the time axis; ``fig.trial_data`` holds the samples and bins drawn.
 ```
 
-### `plot_trials(bins: 'pd.DataFrame', column: 'str' = 'change', by: 'Optional[str]' = 'version', readers: 'Optional[Sequence]' = None, max_readers: 'int' = 6, ncols: 'int' = 3)`
+### `plot_overlays(bins: 'pd.DataFrame', column: 'str' = 'change', by: 'Optional[str]' = 'version', readers: 'Optional[Sequence]' = None, max_readers: 'int' = 6, ncols: 'int' = 3)`
 
 ```
 Trial-level overlays: every trial's trace, one panel per reader, line style by ``by`` (stage 3.6).
