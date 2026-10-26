@@ -59,7 +59,7 @@ DEFAULTS: Dict = {
     "trial_means": {"window": [500, 20000], "cut_before_keypress_ms": 0},
     "events": {"blink": {"window": [-200, 2000], "baseline_ms": 100, "kept_only": True, "lag_ms": 1},
                "return_sweep": {"window": [-300, 1000]}},
-    "options": "paper",                 # "paper" (Tables 3 and S1), None, or a dict of options (see options_table)
+    "options": "paper",                 # "paper" (Tables 4 and S1), None, or a dict of options (see options_table)
     "export": {"folder": "for_R", "bin_ms": 100, "window": [500, 20000], "reference": None, "scripts": True},
     "plots": True,
 }

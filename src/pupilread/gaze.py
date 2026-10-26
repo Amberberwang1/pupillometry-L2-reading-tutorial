@@ -206,12 +206,12 @@ def step_slopes(steps: pd.DataFrame, by: Optional[str] = "eye", method: str = "j
 
 def regression_slopes(bins: pd.DataFrame, window: Tuple[float, float] = (0, 200), min_baseline_pct: float = 60,
                       time_terms: bool = False, means: Optional[pd.Series] = None) -> pd.Series:
-    """Artifact slopes from regressing pupil size on gaze position in the reading data (stage 3.4; Table 2).
+    """Artifact slopes from regressing pupil size on gaze position in the reading data (stage 3.4; Table 3).
 
     ``time_terms=False``: pooled regression of the baseline-corrected pupil on gaze x and y over all valid bins of the
     analysed trials. ``time_terms=True``: within-trial regression with linear and quadratic time, which absorbs the
     decline of pupil size during reading. Because gaze covaries with progress through the text, these slopes can absorb
-    part of a real effect or enlarge it; the saccade steps avoid that (Table 2).
+    part of a real effect or enlarge it; the saccade steps avoid that (Table 3).
 
     Returns
     -------

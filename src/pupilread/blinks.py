@@ -258,7 +258,7 @@ def exclude_trials(samples: pd.DataFrame, min_valid: float = 0.5, exclude=None, 
         Samples after :func:`pad_blinks`.
     min_valid : float
         Minimum share of valid samples (paper: 0.5, i.e. trials with more than half of their samples missing are
-        excluded; 0.75 is the stricter check of Table 3).
+        excluded; 0.75 is the stricter check of Table 4).
     exclude : DataFrame, iterable of (reader, trial) or CSV path, optional
         Trials to drop for other reasons decided blind to version (our study: skimmed or incomplete reading).
     loss : DataFrame, optional
