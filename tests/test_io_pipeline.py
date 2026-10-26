@@ -43,6 +43,16 @@ def test_read_eyelink_drops_duplicated_rows(example, tmp_path):
     assert len(s) == len(ref)
 
 
+def test_read_fixations_drops_duplicated_rows(example, tmp_path):
+    job = example["readers"][0]
+    lines = open(job["fixations"]).read().splitlines()
+    p = tmp_path / "dup_fixations.txt"
+    p.write_text("\n".join([lines[0]] + [l for l in lines[1:] for _ in (0, 1)]) + "\n")
+    ref = pr.read_fixations(job["fixations"], messages=job["messages"], reader="x")
+    f = pr.read_fixations(str(p), messages=job["messages"], reader="x")
+    assert len(f) == len(ref) and not f.duplicated(["trial", "start", "end"]).any()
+
+
 def test_read_eyelink_2000_hz(tmp_path):
     rows = ["TRIAL_INDEX\tTIMESTAMP\tTRIAL_START_TIME\tEYE_TRACKED\tRIGHT_PUPIL_SIZE\tRIGHT_GAZE_X\tRIGHT_GAZE_Y\tRIGHT_IN_BLINK\tRIGHT_IN_SACCADE"]
     for i in range(4000):
