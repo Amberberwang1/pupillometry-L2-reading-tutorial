@@ -30,9 +30,8 @@ Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed
 pip install pupilread
 ```
 
-Until the package is on PyPI, install it from a copy of this repository: the wheel in `dist/`
-(`pip install dist/pupilread-1.0.0-py3-none-any.whl`) or the source (`pip install .` in its folder). The R scripts
-need R with lme4 (trial means) and mgcv (time course).
+From a copy of this repository, `pip install .` installs the same version. The R scripts need R with lme4 (trial
+means) and mgcv (time course).
 
 ## What to export from Data Viewer
 
@@ -189,7 +188,7 @@ paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.m
 ### 3.6 Checks and figures
 
 `plot_trial` (one trial at four stages: raw samples, blinks padded and removed, 20 ms bins and the baseline-corrected
-change; Figure 2), `plot_trials` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
+change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
 (data loss and blink and saccade rates by version), `plot_gaze` (gaze position by version) and `plot_grand_mean`
 (Figure 3B: 1 s bins, 95% confidence intervals, points with at least 20 readers). All figures are black and white.
 

@@ -2,8 +2,7 @@ __pycache__/
 *.pyc
 *.egg-info/
 build/
-dist/*
-!dist/*.whl
+dist/
 .pytest_cache/
 pupilread_example/
 pupilread_output/

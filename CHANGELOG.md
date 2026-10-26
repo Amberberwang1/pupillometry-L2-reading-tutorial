@@ -21,8 +21,11 @@ First release: the pipeline of the tutorial (stages 3.1 to 3.6) as one function 
   Figure 4; the gaze-correction approaches are Table 3 and the estimate under each option Table 4).
 - The README lists the Data Viewer reports and columns the package reads, in a table (Table 2 of the paper).
 - The wheel and the source distribution leave out `tools/` (the scripts that reproduce the paper, with their
-  `--legacy` mode); they stay in the repository, and the wheel itself is kept in `dist/`, so that the package can be
-  installed before its release on PyPI.
+  `--legacy` mode); they stay in the repository.
+- `plot_trials()` is renamed `plot_overlays()`, so that it is not confused with `plot_trial()` (Figure 2 of the paper);
+  `run_pipeline()` saves the overlays as `check_overlays.png`.
+- Package metadata for the anonymised review: author "pupilread developers", no e-mail address, and project URLs
+  pointing to the anonymised repository (the authors' names and the GitHub URL follow in 1.0.1, without code changes).
 - `tools/reproduce_paper.py` recomputes the screen for skimmed texts for any reader whose interest-area report repeats
   rows (see below), computes the readers needed for 80% power from d_z as printed and rounds them up to whole readers,
   checks the 95% confidence intervals of the baseline differences, and counts the residual downward spikes left after

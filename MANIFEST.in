@@ -1,4 +1,4 @@
-include README.md CHANGELOG.md CITATION.cff LICENSE .zenodo.json
+include README.md CHANGELOG.md CITATION.cff LICENSE
 recursive-include src/pupilread/R *.R
 recursive-include tests *.py
 recursive-include examples *.py *.yaml *.R

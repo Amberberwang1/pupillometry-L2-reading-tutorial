@@ -5,11 +5,11 @@ version: 1.0.0
 license: MIT
 type: software
 authors:
-  - name: "Authors of the pupillometry tutorial (anonymised for review)"
+  - name: "pupilread developers"
 keywords:
   - pupillometry
   - eye tracking
   - reading
   - preprocessing
-# At release: add the authors, the Zenodo DOI (doi:) and the repository URL (repository-code:), and a
+# After review (1.0.1): the authors' names, the Zenodo DOI (doi:), the GitHub URL (repository-code:) and a
 # preferred-citation block for the paper.
