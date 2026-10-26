@@ -40,3 +40,12 @@ def test_plot_trial_needs_the_reader_when_several_are_given():
     with pytest.raises(ValueError):
         pr.plot_trial(two, trial=1)
     assert len(pr.plot_trial(two, trial=1, reader="r2").axes) == 4
+
+
+def test_plot_overlays_draws_one_panel_per_reader():
+    # trial overlays (Section 3.6), renamed from plot_trials so that they are not confused with plot_trial
+    samples = concat(*[make_samples(n=1000, reader=r, trial=k) for r in ("r1", "r2", "r3") for k in (1, 2)])
+    bins = pr.baseline(pr.bin(pr.pad_blinks(samples), bin_ms=20), window=(0, 200))
+    fig = pr.plot_overlays(bins, by=None, max_readers=3, ncols=2)
+    assert sum(ax.get_visible() for ax in fig.axes) == 3
+    assert not hasattr(pr, "plot_trials")
