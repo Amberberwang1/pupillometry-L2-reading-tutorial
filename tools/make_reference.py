@@ -1,6 +1,7 @@
 """Write docs/reference.md from the docstrings of the public functions (run after changing a docstring)."""
 import inspect
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +18,7 @@ GROUPS = [
     ("3.4 Gaze-position correction", ["saccade_steps", "classify_saccades", "step_slopes", "regression_slopes",
                                       "correct_gaze", "hat_basis"]),
     ("3.5 Trial length and events", ["trial_means", "window_name", "event_response"]),
-    ("3.6 Checks and figures", ["plot_trial", "plot_trials", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze"]),
+    ("3.6 Checks and figures", ["plot_trial", "plot_overlays", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze"]),
     ("3.7 Control predictors and export for R", ["add_covariates", "control_predictors", "export_for_r", "gamm_bins",
                                                  "r_script_path"]),
     ("5 The estimate under each option", ["options_table", "options_spec"]),
@@ -33,7 +34,7 @@ for title, names in GROUPS:
     for n in names:
         obj = getattr(pr, n)
         try:
-            sig = str(inspect.signature(obj))
+            sig = re.sub(r"<function (\w+) at 0x[0-9a-f]+>", r"\1", str(inspect.signature(obj)))   # no memory addresses
         except (TypeError, ValueError):
             sig = "(...)"
         out += [f"### `{n}{sig}`", "", "```", inspect.cleandoc(obj.__doc__ or ""), "```", ""]
