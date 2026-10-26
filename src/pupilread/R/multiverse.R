@@ -1,4 +1,4 @@
-# The estimate under each option (Section 5 and Table 3 of the tutorial): one lme4 model per option column.
+# The estimate under each option (Section 5 and Table 4 of the tutorial): one lme4 model per option column.
 # Reads trials.csv and options.csv written by pupilread.export_for_r() from pupilread.options_table(). Each option
 # column holds the trial measure under that option, missing for the trials the option leaves out; options.csv gives
 # the model of each column: random part ("slope": reader intercepts, uncorrelated by-reader slope for version and item
