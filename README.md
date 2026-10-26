@@ -35,7 +35,7 @@ means) and mgcv (time course).
 
 ## What to export from Data Viewer
 
-Three reports per reader, as the tab-separated text files Data Viewer writes (Table 2 of the paper). Reports with all
+Three reports per reader, as the tab-separated text files Data Viewer writes (Table S2 of the paper). Reports with all
 their columns work as well; only these are read:
 
 | Report | Columns | Used for |
@@ -70,7 +70,7 @@ Then, in R, from `example/pupilread_output/for_R`:
 
 ```
 Rscript lmm.R          # R 1: trial-level mixed model of the primary measure
-Rscript multiverse.R   # the estimate under each option (Table 4 of the paper)
+Rscript multiverse.R   # the estimate under each option (Table 3 of the paper)
 Rscript gamm.R         # R 2: time-course models (about 30 minutes and 6 GB for the paper's data)
 ```
 
@@ -135,7 +135,7 @@ paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.m
 - **`compare_levels(samples, fixations, min_fix_ms=80)`**: the fixation-report pupil value of every retained fixation
   (at least 80 ms, no adjacent blink) against the mean of the valid samples inside it, and the share of reading time
   that retained fixations cover. **`fixation_means(fixations, reader_means)`** gives the trial measure from fixation
-  averages (the fixation option of Table 4).
+  averages (the fixation option of Table 3).
 
 ### 3.2 Blinks and artifacts
 
@@ -208,7 +208,7 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 
 - **`options_table(samples, options=PAPER_OPTIONS)`**: the trial measure under each option, one column per option,
   missing for the trials an option leaves out, with standardised trial-level covariates. Each option changes one
-  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 4 and S1); `options_spec()` gives the model
+  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S1); `options_spec()` gives the model
   of each column, which `multiverse.R` fits.
 
 ## The R scripts
@@ -216,7 +216,7 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 | Script | Paper | Reads | Model |
 | --- | --- | --- | --- |
 | `lmm.R` | R 1 | `trials.csv` | `change_0_20s ~ contrast + (1 \| reader) + (0 + contrast \| reader) + (1 \| item)`, ML, trials with `baseline_pct >= 60` |
-| `multiverse.R` | Table 4 | `trials.csv`, `options.csv` | the same model for every option column (random part, covariates and term from `options.csv`) |
+| `multiverse.R` | Table 3 | `trials.csv`, `options.csv` | the same model for every option column (random part, covariates and term from `options.csv`) |
 | `gamm.R` | R 2 | `bins.csv` | GAMMs: random intercepts only; per-trial smooths without and with AR1; plus a `te(x, y)` gaze surface |
 
 `pupilread scripts <folder>` copies them anywhere; `MIN_BASE`, `NTHREADS`, `MODELS` and `RANDOM_PART` are read from the
@@ -225,13 +225,13 @@ environment.
 ## Reproducing the paper
 
 `tools/reproduce_paper.py` (in this repository; the released package leaves out `tools/`, including the `--legacy` mode below) reruns the paper's analysis from the raw Data Viewer reports with the package (stage 1 on the
-machine that holds the reports, stage 2 with R), fits Tables 4 and S1, recomputes every number quoted in the text and
+machine that holds the reports, stage 2 with R), fits Tables 3 and S1, recomputes every number quoted in the text and
 compares each with the value printed in the paper. With the package's defaults, all of them match
 (`docs/reproduction.md`).
 
 The first full-study draft of the paper was computed with earlier scripts. With `prepare --legacy`, the package imposes
 three assumptions of those scripts and then reproduces every trial value, every 20 ms bin and every number of that draft
-exactly. pupilread corrects them (see `CHANGELOG.md`), which moved the estimates of Table 4 by −0.08 to +0.10
+exactly. pupilread corrects them (see `CHANGELOG.md`), which moved the estimates of Table 3 by −0.08 to +0.10
 percentage points (primary estimate 1.27% in the draft, 1.37% now):
 
 1. durations counted in samples assumed 1,000 Hz, so 6 of the 45 recordings, made at 2,000 Hz, got 50 ms blink

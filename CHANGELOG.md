@@ -18,8 +18,8 @@ First release: the pipeline of the tutorial (stages 3.1 to 3.6) as one function 
 - `plot_trial()` draws one trial at four stages of the pipeline: the raw samples, the samples after blink padding
   and removal, the 20 ms bins and the baseline-corrected change (Figure 2 of the paper). Docstrings that cite the
   paper's figures and tables follow its numbering (the pupil signals are now Figure 3, the time-course difference
-  Figure 4; the gaze-correction approaches are Table 3 and the estimate under each option Table 4).
-- The README lists the Data Viewer reports and columns the package reads, in a table (Table 2 of the paper).
+  Figure 4; the gaze-correction approaches are Table 2 and the estimate under each option Table 3).
+- The README lists the Data Viewer reports and columns the package reads, in a table (Table S2 of the paper).
 - The wheel and the source distribution leave out `tools/` (the scripts that reproduce the paper, with their
   `--legacy` mode); they stay in the repository.
 - `plot_trials()` is renamed `plot_overlays()`, so that it is not confused with `plot_trial()` (Figure 2 of the paper);
@@ -29,7 +29,8 @@ First release: the pipeline of the tutorial (stages 3.1 to 3.6) as one function 
 - `tools/reproduce_paper.py` recomputes the screen for skimmed texts for any reader whose interest-area report repeats
   rows (see below), computes the readers needed for 80% power from d_z as printed and rounds them up to whole readers,
   checks the 95% confidence intervals of the baseline differences, and counts the residual downward spikes left after
-  blink removal, with the primary estimate after removing them (Section 3.6).
+  blink removal, with the primary estimate after removing them (Section 3.6), and fits the primary estimate without
+  the four readers recorded in the tracker's ellipse-fitting pupil mode (Table S1).
 
 ### Differences from the scripts the paper was first computed with
 
@@ -49,7 +50,7 @@ The package reproduces those scripts exactly when their assumptions are imposed 
   of the reader's trials crossed the screen's 600 words-per-minute ceiling. Recomputed without the repeats, 61 trials
   (not 66) are excluded as skimmed or incomplete.
 
-The corrections moved the estimates of Table 4 by −0.08 to +0.10 percentage points: the primary estimate rose from
+The corrections moved the estimates of Table 3 by −0.08 to +0.10 percentage points: the primary estimate rose from
 1.27% [−0.28, 2.83] to 1.37% [−0.20, 2.94], and the GAMM with a gaze surface fell from 2.04% [0.51, 3.58] to
 1.96% [0.40, 3.52]. The analysed trials rose from 982 to 986 (five trials of that reader return, and one more trial
 lacks a 0–200 ms baseline). The paper reports the corrected values, and `docs/reproduction.md` lists both sets.
