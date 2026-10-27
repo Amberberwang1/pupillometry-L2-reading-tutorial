@@ -1,6 +1,6 @@
 # Reproducing the paper with pupilread
 
-With its defaults, pupilread reproduces 34 of the 34 model estimates of Tables 3 and S2 (to the printed digits, with the printed trial counts) and 82 of the 82 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
+With its defaults, pupilread reproduces 36 of the 36 model estimates of Tables 3 and S2 (to the printed digits, with the printed trial counts) and 84 of the 84 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
 
 Run on the 45 readers' Data Viewer reports (not included: participant data):
 
@@ -51,11 +51,13 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | S2 | gaze_regression_time | 1.23 [−0.47, 2.94], p = .156 | match | 1.14 [−0.55, 2.83], p = .185 | match | 986, 982 |
 | S2 | gaze_steps_reader | 0.91 [−1.19, 3.00], p = .396 | match | 0.80 [−1.28, 2.89], p = .450 | match | 986, 982 |
 | S2 | gaze_steps_map | 0.93 [−0.69, 2.56], p = .261 | match | 0.84 [−0.78, 2.45], p = .310 | match | 986, 982 |
+| S2 | gaze_hybrid | 1.46 [−0.13, 3.05], p = .072 | match | not in the draft |  | 986, – |
+| S2 | control_predictors_cos_theta | 0.98 [−0.57, 2.54], p = .214 | match | not in the draft |  | 986, – |
 | S2 | GAMM M1 without AR1 | 1.34 [−0.26, 2.94], p = .100 | match | 1.24 [−0.33, 2.82], p = .122 | match | 986, 982 |
 | S2 | GAMM M2 without AR1 | 0.85 [−0.56, 2.26], p = .237 | match | 0.79 [−0.77, 2.36], p = .320 | match | 986, 982 |
 | S2 | centroid_only | 1.09 [−0.57, 2.75], p = .198 | match | not in the draft |  | 893, – |
 
-The row gaze_geometric uses the layout of eye, camera and screen in `STUDY_LAYOUT` of `tools/reproduce_paper.py` (`analyse --layout` replaces it); `geometric_check.csv` compares the artifact this layout predicts with the measured saccade steps (Section 3.4).
+The rows gaze_geometric, gaze_hybrid and control_predictors_cos_theta use the layout of eye, camera and screen in `STUDY_LAYOUT` of `tools/reproduce_paper.py` (`analyse --layout` replaces it); `geometric_check.csv` compares the artifact this layout predicts with the measured saccade steps (Section 3.4), and `geometric_scale.csv` holds the scale factors of gaze_hybrid.
 
 ## Numbers in the text
 
@@ -143,6 +145,8 @@ The row gaze_geometric uses the layout of eye, camera and screen in `STUDY_LAYOU
 | 3.4 saccade steps: horizontal artifact, right eye (pp per 100 px) | -0.57 | -0.5671 | match |  |  |
 | 3.4 geometric model: return-sweep step, left eye (%) | -0.8 | -0.837 | match |  |  |
 | 3.4 geometric model: return-sweep step, right eye (%) | 0.0 | 0.046 | match |  |  |
+| S2 geometric model scaled to the saccade steps: scale factor, left eye | -0.81 | -0.8129 | match |  |  |
+| S2 geometric model scaled to the saccade steps: scale factor, right eye | 0.6 | 0.5957 | match |  |  |
 
 ## Legacy mode against the outputs of the original scripts
 
