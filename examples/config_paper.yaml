@@ -13,7 +13,7 @@ interpolate: {max_gap_ms: 1000, kind: linear}
 trials: {min_valid: 0.5}
 bin: {bin_ms: 20, min_valid: 0.5}
 levels: {min_fix_ms: 80}
-gaze: {method: null, by: eye, slopes: joint, time_terms: false}
+gaze: {method: null, by: eye, slopes: joint, time_terms: false, layout: null}
 baseline:
   window: [0, 200]
   method: subtractive
