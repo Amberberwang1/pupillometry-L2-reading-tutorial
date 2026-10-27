@@ -28,7 +28,8 @@ CONTROLS = ("time_s", "time2", "gaze_x", "gaze_y", "eccentricity", "fix_duration
 OPTIONAL_CONTROLS = ("ink_fovea", "ink_parafovea")
 
 #: The options of Table 3 and Table S2 of the paper (trial-level models; the time-course options are fitted by
-#: ``gamm.R``). Keys are the output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
+#: ``gamm.R``). The geometric model needs a measured layout (``gaze.layout`` in the config) and is left out without
+#: one. Keys are the output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
 #: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
 #: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map", or
 #: "geometric" with ``layout``, by default the ``gaze.layout`` setting of the config),
@@ -54,6 +55,8 @@ PAPER_OPTIONS = {
                            table="3"),
     "gaze_steps_type": dict(label="Saccade steps, slopes by saccade type (exploratory)",
                             gaze=dict(method="steps", by="eye", slopes="by_type"), section="3.4", table="3"),
+    "gaze_geometric": dict(label="Geometric model, measured layout", gaze=dict(method="geometric"), section="3.4",
+                           table="3"),
     "fixations_same_trials": dict(label="Samples, same trials as fixation averages", subset="fixations", section="3.1",
                                   table="S2"),
     "window_2_20": dict(label="Window 2-20 s", window=(2000, 20000), section="3.3", table="S2"),
@@ -226,6 +229,7 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     options : dict, optional
         Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
         and S2). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
+        The geometric gaze correction is left out unless the config (``gaze.layout``) or the option gives a layout.
     fixations : DataFrame, optional
         Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
     config : dict or str, optional
@@ -284,6 +288,9 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     key = pd.MultiIndex.from_arrays([T["reader"].astype(str), T["trial"].astype(str)])
     values = {}
     for name, o in options.items():
+        g = o.get("gaze") or {}
+        if g.get("method") == "geometric" and g.get("layout", ctx.layout) is None:
+            continue                                   # no measured layout: the geometric option is left out
         try:
             values[name] = _aligned(_measure(ctx, name, o), key)
         except ValueError as e:
