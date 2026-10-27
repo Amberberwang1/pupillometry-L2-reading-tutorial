@@ -1,6 +1,6 @@
 # Reproducing the paper with pupilread
 
-With its defaults, pupilread reproduces 33 of the 33 model estimates of Tables 3 and S2 (to the printed digits, with the printed trial counts) and 76 of the 76 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
+With its defaults, pupilread reproduces 34 of the 34 model estimates of Tables 3 and S2 (to the printed digits, with the printed trial counts) and 82 of the 82 numbers quoted in the text and supplement. With `prepare --legacy`, it reproduces the first full-study draft, which the original scripts computed: 32 of 32 estimates and 66 of 66 numbers, and every trial value and bin (last section).
 
 Run on the 45 readers' Data Viewer reports (not included: participant data):
 
@@ -34,6 +34,7 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | 3 | gaze_regression | 1.26 [−0.48, 2.99], p = .155 | match | 1.16 [−0.55, 2.87], p = .184 | match | 986, 982 |
 | 3 | gaze_steps_eye | 1.85 [0.06, 3.63], p = .042 | match | 1.75 [−0.03, 3.52], p = .054 | match | 986, 982 |
 | 3 | gaze_steps_type | 0.63 [−0.94, 2.19], p = .434 | match | 0.54 [−1.02, 2.09], p = .499 | match | 986, 982 |
+| 3 | gaze_geometric | 0.85 [−0.71, 2.42], p = .284 | match | not in the draft |  | 986, – |
 | 3 | GAMM M0 naive | 1.29 [1.16, 1.42], p < .001 | match | 1.22 [1.09, 1.35] | match | 986, 982 |
 | 3 | GAMM M1 no gaze term | 1.33 [−0.22, 2.87], p = .092 | match | 1.23 [−0.29, 2.76], p = .113 | match | 986, 982 |
 | 3 | GAMM M2 gaze surface | 1.96 [0.40, 3.52], p = .014 | match | 2.04 [0.51, 3.58], p = .009 | match | 986, 982 |
@@ -53,6 +54,8 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | S2 | GAMM M1 without AR1 | 1.34 [−0.26, 2.94], p = .100 | match | 1.24 [−0.33, 2.82], p = .122 | match | 986, 982 |
 | S2 | GAMM M2 without AR1 | 0.85 [−0.56, 2.26], p = .237 | match | 0.79 [−0.77, 2.36], p = .320 | match | 986, 982 |
 | S2 | centroid_only | 1.09 [−0.57, 2.75], p = .198 | match | not in the draft |  | 893, – |
+
+The row gaze_geometric uses the layout of eye, camera and screen in `STUDY_LAYOUT` of `tools/reproduce_paper.py` (`analyse --layout` replaces it); `geometric_check.csv` compares the artifact this layout predicts with the measured saccade steps (Section 3.4).
 
 ## Numbers in the text
 
@@ -134,6 +137,12 @@ The original scripts made three assumptions that pupilread corrects (`CHANGELOG.
 | 3.6 residual spikes removed: p | 0.092 | 0.09202 | match |  |  |
 | Table S2 note: random four-reader drops with an estimate this low (%) | 12.6 | 12.6 | match |  |  |
 | Table S2 note: random draws | 2000 | 2000.0 | match |  |  |
+| 3.4 geometric model: horizontal artifact, left eye (pp per 100 px) | 0.15 | 0.1548 | match |  |  |
+| 3.4 geometric model: horizontal artifact, right eye (pp per 100 px) | -0.01 | -0.0113 | match |  |  |
+| 3.4 saccade steps: horizontal artifact, left eye (pp per 100 px) | -1.41 | -1.4144 | match |  |  |
+| 3.4 saccade steps: horizontal artifact, right eye (pp per 100 px) | -0.57 | -0.5671 | match |  |  |
+| 3.4 geometric model: return-sweep step, left eye (%) | -0.8 | -0.837 | match |  |  |
+| 3.4 geometric model: return-sweep step, right eye (%) | 0.0 | 0.046 | match |  |  |
 
 ## Legacy mode against the outputs of the original scripts
 
@@ -170,7 +179,7 @@ Largest absolute difference between the package in legacy mode and the files the
 | trial: controls_K1 vs K adj_K1 | 982 | 0 | 5e-14 |
 | trial: controls_K2 vs K adj_K2 | 982 | 0 | 4.1e-14 |
 | trial: controls_K3 vs K adj_K3 | 982 | 0 | 4.3e-14 |
-| trial: controls_K4 vs K adj_K4 | 982 | 0 | 4.3e-14 |
+| trial: controls_K4 vs K adj_K4 | 982 | 0 | 9.9e-14 |
 | 20 ms bins: pupil vs per_reader p_rm | 1865916 | 0 | 0 |
 | 20 ms bins: pupil_interp vs per_reader p_ip | 2048804 | 0 | 0 |
 | 20 ms bins: n_valid vs per_reader nvalid | 2071087 | 0 | 0 |

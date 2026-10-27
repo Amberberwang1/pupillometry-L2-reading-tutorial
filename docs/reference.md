@@ -766,6 +766,7 @@ samples : DataFrame or PupilData
 options : dict, optional
     Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
     and S2). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
+    The geometric gaze correction is left out unless the config (``gaze.layout``) or the option gives a layout.
 fixations : DataFrame, optional
     Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
 config : dict or str, optional
