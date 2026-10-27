@@ -14,14 +14,14 @@ Stage 2 adds the study's local text density (from the interest-area reports copi
 pooled stages, writes the trial table and binned trace (reproduction/for_R), fits Tables 3 and S2 with the package's
 R scripts, recomputes the numbers quoted in the text and compares them with the values printed in the paper. With
 --old (the folder of the original scripts' per_reader/ and results/), it also compares every trial value and every
-20 ms bin with the outputs of the original scripts. With --layout (the measured layout of the recordings, as read by
-pupilread.read_layout), it adds the geometric correction of Hayes and Petrov (2016) to the options of Table 3 and
-compares the artifact that the layout predicts across each saccade with the measured saccade steps (Section 3.4;
-geometric_check.csv).
+20 ms bin with the outputs of the original scripts. With the layout of the recordings (STUDY_LAYOUT, or a layout
+file given with --layout, as read by pupilread.read_layout), it computes the geometric correction of Hayes and Petrov
+(2016) in Table 3 and compares the artifact that the layout predicts across each saccade with the measured saccade
+steps (Section 3.4; geometric_check.csv).
 
 Everything study-specific is in this file: the reader list, the readers recorded in ellipse mode, the reading sets and
-their version order, the exclusions of skimmed texts, the display (20.7 px per degree) and the text layout behind
-local text density.
+their version order, the exclusions of skimmed texts, the display and the layout of eye, camera and screen, and the
+text layout behind local text density.
 """
 from __future__ import annotations
 
@@ -45,7 +45,9 @@ READERS = ("01 02 03 04 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 24 25
            "41 42 43 44 45 46 48 49 50").split()
 SET1 = "01 02 07 08 10 12 14 16 18 20 25 27 29 31 33 35 38 39 41 43 45 47 49".split()
 IA_READERS = {"Set 1": ("01", "02"), "Set 2": ("03", "04")}   # layout from the first, checked against the second
-PX_PER_DEGREE = 20.7
+#: Pixels per degree horizontally at the centre of the screen (1,024 px over 531 mm, 930 mm away); it only expresses
+#: the distance to the next fixation in degrees, which leaves the control-predictor estimates unchanged.
+PX_PER_DEGREE = 31.3
 N_ITEMS = 24
 FIGURE2 = ("01", 5)          # reader and trial of Figure 2 (one trial at four stages of the pipeline)
 #: Readers whose message reports show the tracker's ellipse-fitting pupil mode (ELCL_PROC ELLIPSE) in every trial; the
@@ -53,9 +55,12 @@ FIGURE2 = ("01", 5)          # reader and trial of Figure 2 (one trial at four s
 ELLIPSE_READERS = ("28", "29", "35", "36")
 #: Random reader drops for the note of Table S2 (tools/random_reader_drops.R): draws, readers per draw, seed.
 RANDOM_DROPS = (2000, 4, 2026)
-#: The option of Table 3 added with --layout: the geometric correction with the measured layout.
-GEOMETRIC = ("gaze_geometric", dict(label="Geometric model, measured layout", gaze=dict(method="geometric"),
-                                    section="3.4", table="3"))
+#: Layout of eye, camera and screen in the recordings (the lab's settings; mm, centred on the middle of the head, x to
+#: the right, y up, z towards the screen): the 1024 x 768 image filled the 531 x 299 mm screen of the 24-inch monitor,
+#: 930 mm from the eyes, with the eyes 100 mm below its top edge; the camera lens sat 640 mm in front of and 170 mm
+#: below the eyes, centred (Section 2.2). Used for the geometric correction (Table 3 and Section 3.4).
+STUDY_LAYOUT = {"image_width": 531.0, "image_height": 299.0, "width_px": 1024.0, "height_px": 768.0, "Sx": -265.5,
+                "Sy": 100.0, "Sz": 930.0, "Cx": 0.0, "Cy": -170.0, "Cz": 640.0, "eye": "midline", "eye_separation": 64.0}
 
 
 def reading_set(r: str) -> str:
@@ -248,7 +253,7 @@ def cmd_prepare(a):
 
 # --------------------------------------------------------------------------------------------- local text density
 
-FOV, PARA = 21, 104          # half-widths (px) of the foveal and parafoveal squares (1 and 5 degrees)
+FOV, PARA = 21, 104          # half-widths (px) of the foveal and parafoveal squares (about 0.7 and 3.3 degrees)
 SPACE, CHAR = 0.278 * 20, 10.0
 
 
@@ -409,6 +414,7 @@ TABLE3 = {
     "whole_trial": (1.67, 0.11, 3.23, .036), "random_intercepts": (1.35, -0.07, 2.78, .062),
     "control_predictors": (0.89, -0.67, 2.44, .263), "gaze_regression": (1.26, -0.48, 2.99, .155),
     "gaze_steps_eye": (1.85, 0.06, 3.63, .042), "gaze_steps_type": (0.63, -0.94, 2.19, .434),
+    "gaze_geometric": (0.85, -0.71, 2.42, .284),
     "GAMM M0 naive": (1.29, 1.16, 1.42, None), "GAMM M1 no gaze term": (1.33, -0.22, 2.87, .092),
     "GAMM M2 gaze surface": (1.96, 0.40, 3.52, .014),
 }
@@ -447,6 +453,12 @@ TEXT.update({
     "3.6 residual spikes removed: estimate (%)": (1.36, 2), "3.6 residual spikes removed: p": (0.092, 3),
     "Table S2 note: random four-reader drops with an estimate this low (%)": (12.6, 1),
     "Table S2 note: random draws": (2000, 0),
+    "3.4 geometric model: horizontal artifact, left eye (pp per 100 px)": (0.15, 2),
+    "3.4 geometric model: horizontal artifact, right eye (pp per 100 px)": (-0.01, 2),
+    "3.4 saccade steps: horizontal artifact, left eye (pp per 100 px)": (-1.41, 2),
+    "3.4 saccade steps: horizontal artifact, right eye (pp per 100 px)": (-0.57, 2),
+    "3.4 geometric model: return-sweep step, left eye (%)": (-0.8, 1),
+    "3.4 geometric model: return-sweep step, right eye (%)": (0.0, 1),
     "3.7 fixations from 0.5 to 20 s": (54227, 0), "3.7 fixation-level t": (11.60, 2),
     "3.7 paired t-test on reader means, p": (0.080, 3),
     "3.7 control predictors, no adjustment on the same bins (%)": (1.35, 2),
@@ -1020,9 +1032,8 @@ def cmd_analyse(a):
         print(f"{len(data.readers)} readers read from the cache ({time.time() - t0:.0f} s)", flush=True)
         same = add_ink(data.bins, os.path.join(a.cache, "ia"))
         print("layouts identical across readers of a set:", same, flush=True)
-        if a.layout:                                   # the geometric correction as one more option of Table 3
-            cfg["gaze"]["layout"] = os.path.abspath(a.layout)
-            cfg["options"] = dict(pr.PAPER_OPTIONS, **{GEOMETRIC[0]: GEOMETRIC[1]})
+        if not legacy:           # the layout of the recordings, for the geometric correction (Table 3, Section 3.4)
+            cfg["gaze"]["layout"] = pr.read_layout(a.layout) if a.layout else dict(STUDY_LAYOUT)
         res = pr.analyse(data, cfg)
         T = res.options.copy()
         ladder, ksl = control_ladder(res, data)
@@ -1107,14 +1118,17 @@ def cmd_analyse(a):
         nums["Table S2 note: random four-reader drops with an estimate this low (%)"] = \
             100 * float((D["estimate"] <= k0["centroid_only"]).mean())
         nums["Table S2 note: random draws"] = int(len(D))
-    if a.layout:                       # Section 3.4: the geometric model against the saccade steps
-        gc = geometric_check(res.steps, data.bins, a.layout)
-        if GEOMETRIC[0] in k0.index:
-            r = mv.set_index("column").loc[GEOMETRIC[0]]
-            print(f"{GEOMETRIC[1]['label']}: {r['estimate']:.2f} [{r['lo']:.2f}, {r['hi']:.2f}], p = {r['p']:.3f}, "
-                  f"{int(r['n_trials'])} trials", flush=True)
+    if not legacy:                     # Section 3.4: the geometric model against the saccade steps
+        gc = geometric_check(res.steps, data.bins, a.layout if a.layout else STUDY_LAYOUT)
         gc.to_csv(os.path.join(a.out, "geometric_check.csv"))
         print(gc.round(2).to_string(), flush=True)
+        for eye in ("left", "right"):
+            nums[f"3.4 geometric model: horizontal artifact, {eye} eye (pp per 100 px)"] = \
+                float(gc.loc["predicted joint x (pp per 100 px)", eye])
+            nums[f"3.4 saccade steps: horizontal artifact, {eye} eye (pp per 100 px)"] = \
+                float(gc.loc["measured joint x (pp per 100 px)", eye])
+            nums[f"3.4 geometric model: return-sweep step, {eye} eye (%)"] = \
+                float(gc.loc["predicted return-sweep step (%)", eye])
     ct = compare_text(nums, text_ref)
     ct.to_csv(os.path.join(a.out, "compare_text.csv"), index=False)
     f2 = os.path.join(a.cache, FIGURE2[0], "figure2_trial.csv.gz")
@@ -1163,8 +1177,8 @@ def main(argv=None):
     s2.add_argument("--gamm", action="store_true", help="fit the GAMMs (about 30 minutes, 6 GB)")
     s2.add_argument("--kcheck", action="store_true", help="basis-dimension check of Note S2 (about 15 minutes)")
     s2.add_argument("--reuse", action="store_true", help="reuse the pooled results of an earlier run (out/state.pkl)")
-    s2.add_argument("--layout", help="measured layout of the recordings (CSV; pupilread.read_layout) for the "
-                                     "geometric correction")
+    s2.add_argument("--layout", help="layout of the recordings (CSV; pupilread.read_layout) for the geometric "
+                                     "correction, in place of STUDY_LAYOUT")
     a = p.parse_args(argv)
     {"prepare": cmd_prepare, "analyse": cmd_analyse}[a.cmd](a)
 

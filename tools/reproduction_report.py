@@ -84,6 +84,10 @@ def main(out_new, out_old, target, stage1=None):
         w(f"| {r['table']} | {r['option']} | {fmt(r['estimate'], r['lo'], r['hi'], r['p'])} | {r['status']} | {draft} | "
           f"{leg} | {int(r['n'])}, {ntr} |")
     w("")
+    if (tn["option"] == "gaze_geometric").any():
+        w("The row gaze_geometric uses the layout of eye, camera and screen in `STUDY_LAYOUT` of "
+          "`tools/reproduce_paper.py` (`analyse --layout` replaces it); `geometric_check.csv` compares the artifact this "
+          "layout predicts with the measured saccade steps (Section 3.4).\n")
     w("## Numbers in the text\n")
     w("| Number | Paper | pupilread | Status | Draft | Legacy mode |")
     w("| --- | --- | --- | --- | --- | --- |")
