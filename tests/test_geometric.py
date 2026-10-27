@@ -77,3 +77,15 @@ def test_geometric_option_and_pipeline(example, tmp_path):
     cfg2 = dict(cfg, options=None, gaze={"method": "geometric", "layout": example["layout"]})
     res2 = pr.run_pipeline(example["folder"], cfg2, out=str(tmp_path / "b"), verbose=False)
     assert res2.bins.attrs["baseline"]["column"] == "pupil_corrected"
+
+
+def test_paper_options_include_the_geometric_model_only_with_a_layout(example, tmp_path, recwarn):
+    cfg = {"data": {"design": example["design"]}, "plots": False}
+    res = pr.run_pipeline(example["folder"], cfg, out=str(tmp_path / "a"), verbose=False)
+    assert "gaze_geometric" not in res.options.columns
+    assert not [w for w in recwarn if "gaze_geometric" in str(w.message)]
+    res2 = pr.run_pipeline(example["folder"], dict(cfg, gaze={"layout": example["layout"]}), out=str(tmp_path / "b"),
+                           verbose=False)
+    assert np.isfinite(res2.options["gaze_geometric"]).any()
+    spec = pd.read_csv(tmp_path / "b" / "for_R" / "options.csv")
+    assert spec.loc[spec["column"] == "gaze_geometric", "table"].astype(str).tolist() == ["3"]
