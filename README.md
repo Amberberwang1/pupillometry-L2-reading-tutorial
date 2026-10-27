@@ -176,7 +176,11 @@ paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.m
   `baseline()`; `method=None` (the paper's primary estimate) leaves the bins unchanged. With
   `method="geometric"` and `layout="layout.csv"`, it divides pupil area by cos θ, the foreshortening of the pupil at
   each bin's gaze position predicted from the measured layout (Hayes & Petrov, 2016), or pupil diameter by its square
-  root; no slopes are needed.
+  root; no slopes are needed. With `method="hybrid"` (exploratory) and the scale factors of `geometric_scale()`, it
+  divides by cos θ to the power of each eye's scale factor.
+- **`geometric_scale(steps, layout, by="eye")`** (exploratory): the scale factor of the geometric model per eye (or
+  reader), from regressing the measured saccade steps on the steps the model predicts: 1 where the steps follow the
+  model, 0 where they show no foreshortening artifact, negative where they run against it.
 - **`read_layout(layout)`** and **`foreshortening(bins, layout)`**: the measured layout and cos θ, the cosine of the
   angle between the lines from the recorded eye to the camera lens and to the gaze position. The layout file has the
   columns `setting` and `value`, in mm, centred on the eye the positions were measured from (x to the right, y up,
@@ -215,7 +219,10 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 
 - **`add_covariates(bins, fixations)`** and **`control_predictors(bins, covariates)`**: trial means adjusted for time,
   gaze position and eccentricity, fixation duration, distance to the next fixation and any study-specific predictor
-  (such as local text density), with slopes estimated within trials (Section 3.7).
+  (such as local text density), with slopes estimated within trials (Section 3.7). With a measured layout
+  (`add_covariates(bins, fixations, layout="layout.csv")`), `add_covariates` also adds `cos_theta`, the
+  foreshortening of the geometric model at each bin's gaze position, which can replace eccentricity
+  (`CONTROLS_COS_THETA`).
 - **`export_for_r(trials, bins, folder="for_R", bin_ms=100, window=(500, 20000), reference=None)`** writes:
   - `trials.csv`: one row per trial with reader, item, trial, version, `contrast` (0 = reference version, 1 = the
     other), eye, baseline_pct, `change_0_20s` and any option columns;
@@ -227,9 +234,10 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 
 - **`options_table(samples, options=PAPER_OPTIONS)`**: the trial measure under each option, one column per option,
   missing for the trials an option leaves out, with standardised trial-level covariates. Each option changes one
-  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S2; the geometric model is included
-  when `gaze.layout` names a measured layout); `options_spec()` gives the model of each column, which `multiverse.R`
-  fits.
+  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S2; the three options of the
+  geometric model, in Table 3 and, scaled to the saccade steps or as the control predictor cos θ, in Table S2, are
+  included when `gaze.layout` names a measured layout); `options_spec()` gives the model of each column, which
+  `multiverse.R` fits.
 
 ## The R scripts
 
