@@ -1,0 +1,40 @@
+# Settings of pupilread.run_pipeline, with the paper's primary choices as defaults (pupilread config prints them).
+# Copy this file, change what your study needs, and pass it as run_pipeline(path, "config.yaml").
+data: {format: eyelink, readers: null, reader_pattern: null, design: null, exclude: null,
+  onset: DISPLAY_target, end: KEYBOARD_endTarget, eye: auto, pupil_unit: area, columns: null,
+  hz: null, missing: 0, sep: ',', drop_duplicates: true}
+display: {width: 1024, height: 768, px_per_degree: null}
+blinks:
+  detect: false
+  mad_k: 16
+  pad_ms: 100
+  pupil_range: [100, 10000]
+interpolate: {max_gap_ms: 1000, kind: linear}
+trials: {min_valid: 0.5}
+bin: {bin_ms: 20, min_valid: 0.5}
+levels: {min_fix_ms: 80}
+gaze: {method: null, by: eye, slopes: joint, time_terms: false, layout: null}
+baseline:
+  window: [0, 200]
+  method: subtractive
+  scale: reader_mean
+low_baselines: {min_pct: 60}
+trial_means:
+  window: [500, 20000]
+  cut_before_keypress_ms: 0
+events:
+  blink:
+    window: [-200, 2000]
+    baseline_ms: 100
+    kept_only: true
+    lag_ms: 1
+  return_sweep:
+    window: [-300, 1000]
+options: paper
+export:
+  folder: for_R
+  bin_ms: 100
+  window: [500, 20000]
+  reference: null
+  scripts: true
+plots: true

@@ -34,7 +34,7 @@ sns.set_palette("colorblind")
 # CONFIGURATION
 # =============================================================================
 
-BASE_DIR = Path("/Users/amberwang/Desktop/eye-tracking data")
+BASE_DIR = Path("eye-tracking data")  # folder with the study data (local path removed for review)
 DATA_DIR = BASE_DIR / "eye-tracking data" / "Evs_files"
 
 # Preprocessing parameters (following van Rij et al., 2019)
