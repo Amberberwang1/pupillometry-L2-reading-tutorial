@@ -16,7 +16,7 @@ import pandas as pd
 from ._utils import TRIAL_KEY
 from .baseline import baseline, low_baselines, reader_means
 from .controls import add_covariates, control_predictors
-from .gaze import correct_gaze, regression_slopes, saccade_steps, step_slopes
+from .gaze import correct_gaze, geometric_scale, regression_slopes, saccade_steps, step_slopes
 from .io import to_diameter
 from .levels import fixation_means
 from .windows import trial_means
@@ -26,16 +26,19 @@ from .windows import trial_means
 #: text layout) is added when the bins carry those columns (:data:`OPTIONAL_CONTROLS`).
 CONTROLS = ("time_s", "time2", "gaze_x", "gaze_y", "eccentricity", "fix_duration", "next_distance")
 OPTIONAL_CONTROLS = ("ink_fovea", "ink_parafovea")
+#: The control predictors with ``cos_theta`` (the foreshortening of the measured layout) in place of eccentricity.
+CONTROLS_COS_THETA = tuple("cos_theta" if c == "eccentricity" else c for c in CONTROLS)
 
 #: The options of Table 3 and Table S2 of the paper (trial-level models; the time-course options are fitted by
-#: ``gamm.R``). The geometric model needs a measured layout (``gaze.layout`` in the config) and is left out without
-#: one. Keys are the output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
+#: ``gamm.R``). The options that use the geometric model (gaze methods "geometric" and "hybrid", the control
+#: ``cos_theta``) need a measured layout (``gaze.layout`` in the config) and are left out without one. Keys are the
+#: output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
 #: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
-#: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map", or
-#: "geometric" with ``layout``, by default the ``gaze.layout`` setting of the config),
-#: ``controls`` (and ``optional_controls``, used when present), ``min_baseline_pct``, ``min_valid_trial``, ``subset``,
-#: ``samples`` (sample-level settings, e.g. ``{"blinks": {"pad_ms": 50}}``), and the model: ``random`` ("slope" or
-#: "intercepts"), ``covariates`` and ``term``.
+#: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map",
+#: "geometric" with ``layout``, by default the ``gaze.layout`` setting of the config, or "hybrid" with ``by`` and
+#: ``layout``), ``controls`` (and ``optional_controls``, used when present), ``min_baseline_pct``,
+#: ``min_valid_trial``, ``subset``, ``samples`` (sample-level settings, e.g. ``{"blinks": {"pad_ms": 50}}``), and the
+#: model: ``random`` ("slope" or "intercepts"), ``covariates`` and ``term``.
 PAPER_OPTIONS = {
     "change_0_20s": dict(label="Primary estimate", section="3", table="3"),
     "fixations": dict(label="Fixation averages", level="fixations", section="3.1", table="3"),
@@ -76,6 +79,11 @@ PAPER_OPTIONS = {
                               section="3.4", table="S2"),
     "gaze_steps_map": dict(label="Saccade steps, horizontal map (exploratory)",
                            gaze=dict(method="steps", by="eye", slopes="map"), section="3.4", table="S2"),
+    "gaze_hybrid": dict(label="Geometric model scaled to the saccade steps (exploratory)",
+                        gaze=dict(method="hybrid", by="eye"), section="3.4", table="S2"),
+    "control_predictors_cos_theta": dict(label="Control predictors, cos theta in place of eccentricity",
+                                         controls=list(CONTROLS_COS_THETA), optional_controls=list(OPTIONAL_CONTROLS),
+                                         section="3.7", table="S2"),
     "interpolated": dict(label="Blinks interpolated", interpolated=True, section="3.2", table="S2"),
     "baseline_denominator": dict(label="Reader-baseline denominator", baseline=dict(scale="baseline_mean"),
                                  section="3.3", table="S2"),
@@ -178,11 +186,16 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
             by = g.get("by", "eye")
             sl = step_slopes(ctx.steps, by=by, method=g.get("slopes", "joint"))
             bins = correct_gaze(bins, sl, method="steps", by=by, means=means)
-        elif method == "geometric":
+        elif method in ("geometric", "hybrid"):
             layout = g.get("layout", ctx.layout)
             if layout is None:
                 raise ValueError(f"option {name!r} needs a measured layout (gaze.layout in the config)")
-            bins = correct_gaze(bins, method="geometric", layout=layout)
+            if method == "hybrid":
+                by = g.get("by", "eye")
+                sc = geometric_scale(ctx.steps, layout, by=by)
+                bins = correct_gaze(bins, sc, method="hybrid", by=by, layout=layout)
+            else:
+                bins = correct_gaze(bins, method="geometric", layout=layout)
             means = reader_means(bins, column="pupil_corrected")
         else:
             raise ValueError(f"options_table: unknown gaze method {method!r} in option {name!r}")
@@ -195,9 +208,14 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
     if o.get("controls"):
         if any(c not in b.columns for c in o["controls"]):
             d = ctx.display
+            layout = None
+            if "cos_theta" in o["controls"]:
+                layout = (o.get("gaze") or {}).get("layout", ctx.layout)
+                if layout is None:
+                    raise ValueError(f"option {name!r} needs a measured layout (gaze.layout in the config)")
             b = add_covariates(b, fixations=ctx.fixations if ctx.has_fixations else None,
                                center=(d.get("width", 1024) / 2, d.get("height", 768) / 2),
-                               px_per_degree=d.get("px_per_degree"))
+                               px_per_degree=d.get("px_per_degree"), layout=layout)
         cov = [c for c in o["controls"] if c in b.columns] + [c for c in o.get("optional_controls", []) if c in b.columns]
         missing = [c for c in o["controls"] if c not in b.columns]
         if missing:
@@ -229,7 +247,8 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     options : dict, optional
         Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
         and S2). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
-        The geometric gaze correction is left out unless the config (``gaze.layout``) or the option gives a layout.
+        The options of the geometric model (gaze methods "geometric" and "hybrid", the control ``cos_theta``) are
+        left out unless the config (``gaze.layout``) or the option gives a layout.
     fixations : DataFrame, optional
         Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
     config : dict or str, optional
@@ -289,8 +308,9 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     values = {}
     for name, o in options.items():
         g = o.get("gaze") or {}
-        if g.get("method") == "geometric" and g.get("layout", ctx.layout) is None:
-            continue                                   # no measured layout: the geometric option is left out
+        needs_layout = g.get("method") in ("geometric", "hybrid") or "cos_theta" in (o.get("controls") or [])
+        if needs_layout and g.get("layout", ctx.layout) is None:
+            continue                                   # no measured layout: the options of the geometric model are left out
         try:
             values[name] = _aligned(_measure(ctx, name, o), key)
         except ValueError as e:

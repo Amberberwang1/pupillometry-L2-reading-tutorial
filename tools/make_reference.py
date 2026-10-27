@@ -16,7 +16,7 @@ GROUPS = [
                                   "summarise", "exclude_trials"]),
     ("3.3 Baseline correction", ["reader_means", "baseline", "low_baselines"]),
     ("3.4 Gaze-position correction", ["saccade_steps", "classify_saccades", "step_slopes", "regression_slopes",
-                                      "correct_gaze", "read_layout", "foreshortening", "hat_basis"]),
+                                      "correct_gaze", "read_layout", "foreshortening", "geometric_scale", "hat_basis"]),
     ("3.5 Trial length and events", ["trial_means", "window_name", "event_response"]),
     ("3.6 Checks and figures", ["plot_trial", "plot_overlays", "plot_baselines", "plot_grand_mean", "plot_quality", "plot_gaze"]),
     ("3.7 Control predictors and export for R", ["add_covariates", "control_predictors", "export_for_r", "gamm_bins",

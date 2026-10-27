@@ -17,7 +17,8 @@ R scripts, recomputes the numbers quoted in the text and compares them with the 
 20 ms bin with the outputs of the original scripts. With the layout of the recordings (STUDY_LAYOUT, or a layout
 file given with --layout, as read by pupilread.read_layout), it computes the geometric correction of Hayes and Petrov
 (2016) in Table 3 and compares the artifact that the layout predicts across each saccade with the measured saccade
-steps (Section 3.4; geometric_check.csv).
+steps (Section 3.4; geometric_check.csv); in Table S2, it also scales the model to the saccade steps of each eye
+(geometric_scale.csv) and uses its cos theta as a control predictor in place of eccentricity.
 
 Everything study-specific is in this file: the reader list, the readers recorded in ellipse mode, the reading sets and
 their version order, the exclusions of skimmed texts, the display and the layout of eye, camera and screen, and the
@@ -426,6 +427,7 @@ TABLE_S2 = {
     "whole_trial_covariates": (1.66, 0.08, 3.23, .039), "cut_1s": (1.37, -0.20, 2.94, .087),
     "cut_2s": (1.37, -0.20, 2.93, .087), "gaze_regression_time": (1.23, -0.47, 2.94, .156),
     "gaze_steps_reader": (0.91, -1.19, 3.00, .396), "gaze_steps_map": (0.93, -0.69, 2.56, .261),
+    "gaze_hybrid": (1.46, -0.13, 3.05, .072), "control_predictors_cos_theta": (0.98, -0.57, 2.54, .214),
     "GAMM M1 without AR1": (1.34, -0.26, 2.94, .100), "GAMM M2 without AR1": (0.85, -0.56, 2.26, .237),
     "centroid_only": (1.09, -0.57, 2.75, .198),
 }
@@ -459,6 +461,8 @@ TEXT.update({
     "3.4 saccade steps: horizontal artifact, right eye (pp per 100 px)": (-0.57, 2),
     "3.4 geometric model: return-sweep step, left eye (%)": (-0.8, 1),
     "3.4 geometric model: return-sweep step, right eye (%)": (0.0, 1),
+    "S2 geometric model scaled to the saccade steps: scale factor, left eye": (-0.81, 2),
+    "S2 geometric model scaled to the saccade steps: scale factor, right eye": (0.60, 2),
     "3.7 fixations from 0.5 to 20 s": (54227, 0), "3.7 fixation-level t": (11.60, 2),
     "3.7 paired t-test on reader means, p": (0.080, 3),
     "3.7 control predictors, no adjustment on the same bins (%)": (1.35, 2),
@@ -1129,6 +1133,12 @@ def cmd_analyse(a):
                 float(gc.loc["measured joint x (pp per 100 px)", eye])
             nums[f"3.4 geometric model: return-sweep step, {eye} eye (%)"] = \
                 float(gc.loc["predicted return-sweep step (%)", eye])
+        # Table S2: the scale factors of the geometric model fitted to the saccade steps (gaze_hybrid)
+        sc = pr.geometric_scale(res.steps, a.layout if a.layout else STUDY_LAYOUT, by="eye")
+        sc.to_csv(os.path.join(a.out, "geometric_scale.csv"))
+        print(sc.round(3).to_string(), flush=True)
+        for eye in ("left", "right"):
+            nums[f"S2 geometric model scaled to the saccade steps: scale factor, {eye} eye"] = float(sc.loc[eye, "k"])
     ct = compare_text(nums, text_ref)
     ct.to_csv(os.path.join(a.out, "compare_text.csv"), index=False)
     f2 = os.path.join(a.cache, FIGURE2[0], "figure2_trial.csv.gz")

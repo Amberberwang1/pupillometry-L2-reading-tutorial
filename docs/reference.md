@@ -447,24 +447,27 @@ bins : DataFrame
     for its own gaze position; a warning is raised if the bins already carry a baseline.
 slopes : DataFrame or Series
     For ``method="steps"``: :func:`step_slopes` output (% of reader mean per pixel, one row per eye or reader, or
-    a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel).
-method : {None, "steps", "regression", "geometric"}
+    a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel). For
+    ``method="hybrid"``: :func:`geometric_scale` output (scale factor k per eye or reader).
+method : {None, "steps", "regression", "geometric", "hybrid"}
     None (paper's primary estimate) returns the bins unchanged. "geometric" divides pupil area by cos theta of the
     measured layout (:func:`foreshortening`; Hayes & Petrov, 2016), or pupil diameter by its square root,
-    following ``bins.attrs['pupil_unit']``; it needs ``layout`` and no ``slopes``.
+    following ``bins.attrs['pupil_unit']``; it needs ``layout`` and no ``slopes``. "hybrid" (exploratory) raises
+    cos theta to the power k of :func:`geometric_scale` first; it needs ``layout`` and ``slopes``.
 by : {"eye", "reader", None}
-    Which column of the bins selects the row of ``slopes`` (steps only); None applies one pooled row to all bins.
+    Which column of the bins selects the row of ``slopes`` (steps and hybrid); None applies one pooled row to all
+    bins.
 means : Series, optional
     Reader means for the steps correction (default: :func:`reader_means` of the bins).
 layout : str, path or dict, optional
-    The measured layout for ``method="geometric"`` (:func:`read_layout`).
+    The measured layout for ``method="geometric"`` and ``method="hybrid"`` (:func:`read_layout`).
 
 Returns
 -------
 DataFrame
-    The bins with ``pupil_corrected`` (and ``cos_theta`` for the geometric correction); missing gaze positions are
-    set to the mean gaze position before the artifact is removed. Bins whose eye or reader has no row in ``slopes``
-    get a missing corrected value.
+    The bins with ``pupil_corrected`` (and ``cos_theta`` for the geometric and hybrid corrections); missing gaze
+    positions are set to the mean gaze position before the artifact is removed. Bins whose eye or reader has no row
+    in ``slopes`` get a missing corrected value.
 ```
 
 ### `read_layout(layout) -> 'dict'`
@@ -506,6 +509,36 @@ Returns
 -------
 ndarray
     cos theta per row (missing where the gaze position is missing).
+```
+
+### `geometric_scale(steps: 'pd.DataFrame', layout, by: 'Optional[str]' = 'eye', pupil_unit: 'str' = 'area', min_saccades: 'int' = 50, types=('forward', 'regression', 'return sweep')) -> 'pd.DataFrame'`
+
+```
+Scale factor of the geometric model, fitted to the saccade steps (stage 3.4; exploratory hybrid correction).
+
+For every saccade with a measured step, the geometric model predicts the change in measured pupil size between its
+start and landing positions, in % of the reader mean like the step: ref x ((cos theta at landing / cos theta at
+the start) ** p - 1), with p = 1 for pupil area and 0.5 for diameter (:func:`foreshortening`). Regressing the
+measured steps on the predicted ones (with an intercept, over the saccade types of the joint step regression) gives
+the scale factor k per group: k = 1 where the steps follow the model, 0 where they show no foreshortening artifact
+and a negative k where they run against it. ``correct_gaze(method="hybrid")`` divides pupil area by cos theta to
+the power k.
+
+Parameters
+----------
+steps : DataFrame
+    Output of :func:`saccade_steps` (with the eye of each saccade).
+layout : str, path or dict
+    The measured layout (:func:`read_layout`).
+by : {"eye", "reader", None}
+    One scale factor per recorded eye, per reader (readers with more than ``min_saccades`` saccades) or pooled.
+pupil_unit : {"area", "diameter"}
+    Unit of the pupil trace the steps were measured on.
+
+Returns
+-------
+DataFrame
+    One row per group: k, intercept, r2 (variance of the steps explained by the prediction) and n_saccades.
 ```
 
 ### `hat_basis(x, knots) -> 'np.ndarray'`
@@ -659,7 +692,7 @@ the gaze position in the baseline window, which shows where versions differ in t
 
 ## 3.7 Control predictors and export for R
 
-### `add_covariates(bins: 'pd.DataFrame', fixations: 'Optional[pd.DataFrame]' = None, center: 'Tuple[float, float]' = (512, 384), px_per_degree: 'Optional[float]' = None, time_center_s: 'float' = 10.0, min_fix_ms: 'float' = 80) -> 'pd.DataFrame'`
+### `add_covariates(bins: 'pd.DataFrame', fixations: 'Optional[pd.DataFrame]' = None, center: 'Tuple[float, float]' = (512, 384), px_per_degree: 'Optional[float]' = None, time_center_s: 'float' = 10.0, min_fix_ms: 'float' = 80, layout=None) -> 'pd.DataFrame'`
 
 ```
 Add generic control predictors to the bins.
@@ -667,8 +700,10 @@ Add generic control predictors to the bins.
 Adds ``time_s`` (s from text onset), ``time2`` ((time_s - time_center_s) squared), ``eccentricity`` (distance of
 gaze from ``center``, pixels) and, if ``fixations`` are given, ``fix_duration`` (duration of the fixation in
 progress, i.e. the last retained fixation that started at or before the bin) and ``next_distance`` (distance to the
-next fixation, in degrees if ``px_per_degree`` is given, else pixels). Study-specific predictors, such as local text
-density computed from interest areas, can be added as further columns.
+next fixation, in degrees if ``px_per_degree`` is given, else pixels). With a measured ``layout``
+(:func:`read_layout`), also ``cos_theta``: the cosine of the angle between the lines from the recorded eye to the
+camera lens and to the gaze position (:func:`foreshortening`; missing where gaze is missing). Study-specific
+predictors, such as local text density computed from interest areas, can be added as further columns.
 ```
 
 ### `control_predictors(bins: 'pd.DataFrame', covariates: 'Sequence[str]', window: 'Tuple[float, float]' = (500, 20000), min_baseline_pct: 'Optional[float]' = 60, column: 'str' = 'change', name: 'str' = 'change_adjusted', complete_cases: 'Optional[Sequence[str]]' = None)`
@@ -766,7 +801,8 @@ samples : DataFrame or PupilData
 options : dict, optional
     Option name (the output column) -> settings, as in :data:`PAPER_OPTIONS` (the default: the options of Tables 3
     and S2). Each option changes one decision of the primary estimate; settings not named keep the primary choice.
-    The geometric gaze correction is left out unless the config (``gaze.layout``) or the option gives a layout.
+    The options of the geometric model (gaze methods "geometric" and "hybrid", the control ``cos_theta``) are
+    left out unless the config (``gaze.layout``) or the option gives a layout.
 fixations : DataFrame, optional
     Fixation table (:func:`read_fixations`), for the fixation-level and step-based options.
 config : dict or str, optional

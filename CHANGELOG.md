@@ -29,6 +29,10 @@ First release: the pipeline of the tutorial (stages 3.1 to 3.6) as one function 
   shows the call as an alternative, `tools/reproduce_paper.py` holds the layout of the paper's recordings and compares
   the artifact it predicts with the saccade steps, and `tools/geometric_vs_pypillometry.py` checks the correction
   against pypillometry 2.
+- Two exploratory options of Table S2 build on the geometric model and, like the Table 3 row, run only with a measured
+  layout: "Geometric model scaled to the saccade steps" (`correct_gaze(method="hybrid")` with the per-eye scale
+  factors of the new `geometric_scale()`, also `gaze.method: hybrid` in the config) and "Control predictors, cos theta
+  in place of eccentricity" (`add_covariates(..., layout=...)` adds `cos_theta`; `CONTROLS_COS_THETA`).
 - The README lists the Data Viewer reports and columns the package reads, in a table (Table S1 of the paper).
 - The wheel and the source distribution leave out `tools/` (the scripts that reproduce the paper, with their
   `--legacy` mode); they stay in the repository.
