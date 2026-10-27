@@ -227,8 +227,9 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 
 - **`options_table(samples, options=PAPER_OPTIONS)`**: the trial measure under each option, one column per option,
   missing for the trials an option leaves out, with standardised trial-level covariates. Each option changes one
-  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S2); `options_spec()` gives the model
-  of each column, which `multiverse.R` fits.
+  decision of the primary estimate (`PAPER_OPTIONS` holds those of Tables 3 and S2; the geometric model is included
+  when `gaze.layout` names a measured layout); `options_spec()` gives the model of each column, which `multiverse.R`
+  fits.
 
 ## The R scripts
 
