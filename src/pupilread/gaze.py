@@ -6,7 +6,9 @@ just before saccade onset to 20-120 ms after landing, therefore estimates the ar
 saccade's horizontal and vertical size gives the artifact per pixel of gaze shift (Python 4 of the paper).
 
 The geometric model of Hayes and Petrov (2016) instead predicts the artifact from the measured positions of eye, camera
-and screen (:func:`read_layout`, :func:`foreshortening`), with no parameter estimated from the pupil data.
+and screen (:func:`read_layout`, :func:`foreshortening`), with no parameter estimated from the pupil data. An
+exploratory hybrid scales the model to the saccade steps (:func:`geometric_scale`): the shape of the artifact comes from
+the geometry, its size from the readers' own data.
 """
 from __future__ import annotations
 
@@ -346,6 +348,59 @@ def foreshortening(bins: pd.DataFrame, layout) -> np.ndarray:
     return num / (np.sqrt(tx ** 2 + ty ** 2 + tz ** 2) * np.sqrt(cx ** 2 + cy ** 2 + cz ** 2))
 
 
+def geometric_scale(steps: pd.DataFrame, layout, by: Optional[str] = "eye", pupil_unit: str = "area",
+                    min_saccades: int = 50, types=JOINT_TYPES) -> pd.DataFrame:
+    """Scale factor of the geometric model, fitted to the saccade steps (stage 3.4; exploratory hybrid correction).
+
+    For every saccade with a measured step, the geometric model predicts the change in measured pupil size between its
+    start and landing positions, in % of the reader mean like the step: ref x ((cos theta at landing / cos theta at
+    the start) ** p - 1), with p = 1 for pupil area and 0.5 for diameter (:func:`foreshortening`). Regressing the
+    measured steps on the predicted ones (with an intercept, over the saccade types of the joint step regression) gives
+    the scale factor k per group: k = 1 where the steps follow the model, 0 where they show no foreshortening artifact
+    and a negative k where they run against it. ``correct_gaze(method="hybrid")`` divides pupil area by cos theta to
+    the power k.
+
+    Parameters
+    ----------
+    steps : DataFrame
+        Output of :func:`saccade_steps` (with the eye of each saccade).
+    layout : str, path or dict
+        The measured layout (:func:`read_layout`).
+    by : {"eye", "reader", None}
+        One scale factor per recorded eye, per reader (readers with more than ``min_saccades`` saccades) or pooled.
+    pupil_unit : {"area", "diameter"}
+        Unit of the pupil trace the steps were measured on.
+
+    Returns
+    -------
+    DataFrame
+        One row per group: k, intercept, r2 (variance of the steps explained by the prediction) and n_saccades.
+    """
+    lay = layout if isinstance(layout, dict) and "eye_separation" in layout else read_layout(layout)
+    check_columns(steps, ["x0", "y0", "x1", "y1", "eye", "ref", "step", "type"], "geometric_scale")
+    q = steps[np.isfinite(steps["step"].to_numpy(float)) & steps["type"].isin(types)].copy()
+    c0 = foreshortening(q.rename(columns={"x0": "gaze_x", "y0": "gaze_y"}), lay)
+    c1 = foreshortening(q.rename(columns={"x1": "gaze_x", "y1": "gaze_y"}), lay)
+    p = 0.5 if pupil_unit == "diameter" else 1.0
+    q["predicted"] = q["ref"].to_numpy(float) * ((c1 / c0) ** p - 1)
+    q = q[np.isfinite(q["predicted"].to_numpy(float))]
+    groups = [("pooled", q)] if by is None else list(q.groupby(by, sort=True))
+    rows = []
+    for gname, d in groups:
+        if (by == "reader" and len(d) <= min_saccades) or len(d) < 3:
+            continue
+        x, y = d["predicted"].to_numpy(float), d["step"].to_numpy(float)
+        X = np.column_stack([np.ones(len(d)), x])
+        c = _ols(X, y)
+        r2 = 1 - float(((y - X @ c) ** 2).sum()) / float(((y - y.mean()) ** 2).sum())
+        rows.append({"group": gname, "k": c[1], "intercept": c[0], "r2": r2, "n_saccades": len(d)})
+    if not rows:
+        raise ValueError("geometric_scale: too few saccades")
+    out = pd.DataFrame(rows).set_index("group")
+    out.attrs = {"by": by, "method": "hybrid", "pupil_unit": pupil_unit}
+    return out
+
+
 def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, by: str = "eye",
                  means: Optional[pd.Series] = None, layout=None) -> pd.DataFrame:
     """Remove the gaze-position artifact from every bin, before baseline correction (stage 3.4).
@@ -357,24 +412,27 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
         for its own gaze position; a warning is raised if the bins already carry a baseline.
     slopes : DataFrame or Series
         For ``method="steps"``: :func:`step_slopes` output (% of reader mean per pixel, one row per eye or reader, or
-        a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel).
-    method : {None, "steps", "regression", "geometric"}
+        a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel). For
+        ``method="hybrid"``: :func:`geometric_scale` output (scale factor k per eye or reader).
+    method : {None, "steps", "regression", "geometric", "hybrid"}
         None (paper's primary estimate) returns the bins unchanged. "geometric" divides pupil area by cos theta of the
         measured layout (:func:`foreshortening`; Hayes & Petrov, 2016), or pupil diameter by its square root,
-        following ``bins.attrs['pupil_unit']``; it needs ``layout`` and no ``slopes``.
+        following ``bins.attrs['pupil_unit']``; it needs ``layout`` and no ``slopes``. "hybrid" (exploratory) raises
+        cos theta to the power k of :func:`geometric_scale` first; it needs ``layout`` and ``slopes``.
     by : {"eye", "reader", None}
-        Which column of the bins selects the row of ``slopes`` (steps only); None applies one pooled row to all bins.
+        Which column of the bins selects the row of ``slopes`` (steps and hybrid); None applies one pooled row to all
+        bins.
     means : Series, optional
         Reader means for the steps correction (default: :func:`reader_means` of the bins).
     layout : str, path or dict, optional
-        The measured layout for ``method="geometric"`` (:func:`read_layout`).
+        The measured layout for ``method="geometric"`` and ``method="hybrid"`` (:func:`read_layout`).
 
     Returns
     -------
     DataFrame
-        The bins with ``pupil_corrected`` (and ``cos_theta`` for the geometric correction); missing gaze positions are
-        set to the mean gaze position before the artifact is removed. Bins whose eye or reader has no row in ``slopes``
-        get a missing corrected value.
+        The bins with ``pupil_corrected`` (and ``cos_theta`` for the geometric and hybrid corrections); missing gaze
+        positions are set to the mean gaze position before the artifact is removed. Bins whose eye or reader has no row
+        in ``slopes`` get a missing corrected value.
     """
     if method is None:
         return bins
@@ -386,18 +444,22 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
     xf = bins["gaze_x"].fillna(bins.loc[ok, "gaze_x"].mean()).to_numpy(float)
     yf = bins["gaze_y"].fillna(bins.loc[ok, "gaze_y"].mean()).to_numpy(float)
     out = bins.copy()
+
+    def group_key(sl):
+        sl = sl.copy()
+        sl.index = sl.index.astype(str)
+        if by is None or (len(sl) == 1 and sl.index[0] == "pooled"):
+            return sl, pd.Series(sl.index[0], index=out.index)
+        key = out[by].astype(str)
+        if by == "eye":
+            key = key.str.lower()
+            sl.index = sl.index.str.lower()
+        return sl, key
+
     if method == "steps":
         if not isinstance(slopes, pd.DataFrame):
             raise ValueError("correct_gaze(method='steps') needs the DataFrame returned by step_slopes()")
-        sl = slopes.copy()
-        sl.index = sl.index.astype(str)
-        if by is None or (len(sl) == 1 and sl.index[0] == "pooled"):
-            key = pd.Series(sl.index[0], index=out.index)
-        else:
-            key = out[by].astype(str)
-            if by == "eye":
-                key = key.str.lower()
-                sl.index = sl.index.str.lower()
+        sl, key = group_key(slopes)
         rm = means if means is not None else _reader_means(bins)
         rmv = out["reader"].map(rm).to_numpy(float)
         byy = key.map(sl["bY"]).to_numpy(float)
@@ -417,9 +479,11 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
     elif method == "regression":
         bx, byy = float(slopes["bX"]), float(slopes["bY"])
         out["pupil_corrected"] = out["pupil"].to_numpy(float) - (bx * xf + byy * yf)
-    elif method == "geometric":
+    elif method in ("geometric", "hybrid"):
         if layout is None:
-            raise ValueError("correct_gaze(method='geometric') needs layout= (a CSV file or dict; see read_layout)")
+            raise ValueError(f"correct_gaze(method={method!r}) needs layout= (a CSV file or dict; see read_layout)")
+        if method == "hybrid" and not (isinstance(slopes, pd.DataFrame) and "k" in slopes.columns):
+            raise ValueError("correct_gaze(method='hybrid') needs the DataFrame returned by geometric_scale()")
         check_columns(bins, ["eye"], "correct_gaze")
         c = foreshortening(pd.DataFrame({"gaze_x": xf, "gaze_y": yf, "eye": out["eye"].to_numpy()}), layout)
         if not (c > 0).all():
@@ -427,8 +491,11 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
                           "missing")
             c = np.where(c > 0, c, np.nan)
         power = 0.5 if (bins.attrs or {}).get("pupil_unit", "area") == "diameter" else 1.0
+        if method == "hybrid":
+            sl, key = group_key(slopes)
+            power = power * key.map(sl["k"]).to_numpy(float)
         out["cos_theta"] = c
         out["pupil_corrected"] = out["pupil"].to_numpy(float) / c ** power
     else:
-        raise ValueError("correct_gaze: method must be None, 'steps', 'regression' or 'geometric'")
+        raise ValueError("correct_gaze: method must be None, 'steps', 'regression', 'geometric' or 'hybrid'")
     return copy_attrs(bins, out, gaze_correction=method)

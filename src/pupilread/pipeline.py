@@ -23,7 +23,7 @@ from ._version import __version__
 from ._utils import TRIAL_KEY
 from .baseline import baseline, low_baselines, reader_means
 from .blinks import data_loss, detect_blinks, exclude_trials, interpolate, pad_blinks, summarise
-from .gaze import correct_gaze, regression_slopes, saccade_steps, step_slopes
+from .gaze import correct_gaze, geometric_scale, regression_slopes, saccade_steps, step_slopes
 from .io import read_csv, read_eyelink, read_fixations, read_messages
 from .levels import bin as bin_samples
 from .levels import compare_levels
@@ -54,7 +54,7 @@ DEFAULTS: Dict = {
     "bin": {"bin_ms": 20, "min_valid": 0.5},
     "levels": {"min_fix_ms": 80},
     "gaze": {"method": None, "by": "eye", "slopes": "joint", "time_terms": False,
-             "layout": None},              # layout: measured layout for method "geometric" (CSV file; read_layout)
+             "layout": None},              # layout: measured layout for "geometric" and "hybrid" (CSV file; read_layout)
     "baseline": {"window": [0, 200], "method": "subtractive", "scale": "reader_mean"},
     "low_baselines": {"min_pct": 60},
     "trial_means": {"window": [500, 20000], "cut_before_keypress_ms": 0},
@@ -507,8 +507,16 @@ def analyse(data: PupilData, config=None) -> Result:
     elif g.get("method") == "geometric":
         bins = correct_gaze(bins, method="geometric", layout=g.get("layout"))
         rm_base = reader_means(bins, column="pupil_corrected")
+    elif g.get("method") == "hybrid":
+        if steps is None:
+            raise ValueError("gaze.method 'hybrid' needs fixation reports")
+        if g.get("layout") is None:
+            raise ValueError("gaze.method 'hybrid' needs gaze.layout (a measured layout; see read_layout)")
+        slopes = geometric_scale(steps, g["layout"], by=g.get("by", "eye"))
+        bins = correct_gaze(bins, slopes, method="hybrid", by=g.get("by", "eye"), layout=g["layout"])
+        rm_base = reader_means(bins, column="pupil_corrected")
     elif g.get("method") is not None:
-        raise ValueError("gaze.method must be null, 'steps', 'regression' or 'geometric'")
+        raise ValueError("gaze.method must be null, 'steps', 'regression', 'geometric' or 'hybrid'")
     elif steps is not None:
         try:
             slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "joint"))

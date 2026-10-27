@@ -14,23 +14,30 @@ import numpy as np
 import pandas as pd
 
 from ._utils import TRIAL_KEY, check_columns, ok_mask
+from .gaze import foreshortening
 from .levels import retained_fixations
 
 
 def add_covariates(bins: pd.DataFrame, fixations: Optional[pd.DataFrame] = None, center: Tuple[float, float] = (512, 384),
-                   px_per_degree: Optional[float] = None, time_center_s: float = 10.0, min_fix_ms: float = 80) -> pd.DataFrame:
+                   px_per_degree: Optional[float] = None, time_center_s: float = 10.0, min_fix_ms: float = 80,
+                   layout=None) -> pd.DataFrame:
     """Add generic control predictors to the bins.
 
     Adds ``time_s`` (s from text onset), ``time2`` ((time_s - time_center_s) squared), ``eccentricity`` (distance of
     gaze from ``center``, pixels) and, if ``fixations`` are given, ``fix_duration`` (duration of the fixation in
     progress, i.e. the last retained fixation that started at or before the bin) and ``next_distance`` (distance to the
-    next fixation, in degrees if ``px_per_degree`` is given, else pixels). Study-specific predictors, such as local text
-    density computed from interest areas, can be added as further columns.
+    next fixation, in degrees if ``px_per_degree`` is given, else pixels). With a measured ``layout``
+    (:func:`read_layout`), also ``cos_theta``: the cosine of the angle between the lines from the recorded eye to the
+    camera lens and to the gaze position (:func:`foreshortening`; missing where gaze is missing). Study-specific
+    predictors, such as local text density computed from interest areas, can be added as further columns.
     """
     out = bins.copy()
     out["time_s"] = out["time"].to_numpy(float) / 1000.0
     out["time2"] = (out["time_s"] - time_center_s) ** 2
     out["eccentricity"] = np.hypot(out["gaze_x"] - center[0], out["gaze_y"] - center[1])
+    if layout is not None:
+        check_columns(out, ["eye"], "add_covariates")
+        out["cos_theta"] = foreshortening(out, layout)
     if fixations is not None:
         F = retained_fixations(fixations, min_fix_ms).sort_values(TRIAL_KEY + ["start"], kind="mergesort").copy()
         g = F.groupby(TRIAL_KEY, sort=False)
