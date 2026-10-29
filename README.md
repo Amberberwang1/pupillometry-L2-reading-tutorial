@@ -29,7 +29,6 @@ files only.
 | --- | --- |
 | `src/pupilread/` | The package, with the R scripts `lmm.R`, `gamm.R` and `multiverse.R` |
 | `examples/` | The paper's code boxes (Python 1 to 4, R 1 and R 2), exactly as printed, and the settings file for `run_pipeline` (`config_paper.yaml`) |
-| `reproduce/` | The scripts that reproduce Tables 3 and S2 and Figures 2–4 and S1 from the full recordings, and the report of that check |
 
 ## Installation
 
@@ -275,14 +274,6 @@ change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline 
 
 `pupilread scripts <folder>` copies them anywhere; `MIN_BASE`, `NTHREADS`, `MODELS` and `RANDOM_PART` are read from the
 environment.
-
-## Reproducing the paper
-
-`reproduce/reproduce_paper.py` reruns the paper's analysis from the raw Data Viewer reports, which are available from
-the authors on reasonable request. Stage 1 prepares each reader's data; stage 2 (with R) fits Tables 3 and S2 and
-compares every number quoted in the paper with the value it computes. `reproduce/paper_figures.py` draws Figures 2–4
-and S1. With the package's defaults, all 36 estimates of Tables 3 and S2 and all 84 numbers quoted in the text and
-supplement match (`reproduce/reproduction.md`).
 
 ## Citation and licence
 
