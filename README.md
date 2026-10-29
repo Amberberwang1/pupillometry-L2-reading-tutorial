@@ -24,14 +24,14 @@ synthetic files only.
 
 ## Installation
 
-Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically):
+Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically). Download or clone
+this repository and, in its folder, run:
 
 ```
-pip install pupilread
+pip install .
 ```
 
-From a copy of this repository, `pip install .` installs the same version. The R scripts need R with lme4 (trial
-means) and mgcv (time course).
+The R scripts need R with lme4 (trial means) and mgcv (time course).
 
 ## What to export from Data Viewer
 
@@ -271,8 +271,10 @@ percentage points (primary estimate 1.27% in the draft, 1.37% now):
 
 ## Tests
 
+In the repository folder:
+
 ```
-pip install pupilread[test]
+pip install ".[test]"
 pytest
 ```
 
@@ -284,5 +286,4 @@ run when R, lme4 and mgcv are installed.
 
 ## Citation and licence
 
-Cite the paper and the archived version of the package (Zenodo DOI to be added at release); `CITATION.cff` has the
-details. MIT licence.
+Cite the paper and this version of the package (1.0.0); `CITATION.cff` has the details. MIT licence.

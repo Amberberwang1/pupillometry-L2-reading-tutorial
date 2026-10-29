@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use pupilread, please cite the paper and the archived version of the package."
+message: "If you use pupilread, please cite the paper and this version of the package."
 title: "pupilread: pupillometry preprocessing for passage reading"
 version: 1.0.0
 license: MIT
@@ -11,5 +11,5 @@ keywords:
   - eye tracking
   - reading
   - preprocessing
-# After review (1.0.1): the authors' names, the Zenodo DOI (doi:), the GitHub URL (repository-code:) and a
+# After review (1.0.1): the authors' names, the GitHub URL (repository-code:) and a
 # preferred-citation block for the paper.
