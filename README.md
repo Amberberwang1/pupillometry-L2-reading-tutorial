@@ -19,8 +19,8 @@ What it adds for passage reading:
   `multiverse.R`).
 
 Status: 1.0.0, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
-reports, 1,000 and 2,000 Hz); other trackers can be read with `read_csv` (column mapping), which has been tested on
-synthetic files only.
+reports, 1,000 and 2,000 Hz). Other trackers: see [Other eye trackers](#other-eye-trackers), tested on synthetic
+files only.
 
 ## Installation
 
@@ -46,6 +46,51 @@ their columns work as well; only these are read:
 
 A design file (`design.csv`) gives the item and version of each trial. `make_example()` writes all four in the layout
 the examples use: `01/sample_report.txt`, `01/message_report.txt`, `01/fixation_report.txt` and `design.csv`.
+
+## Other eye trackers
+
+Tested on synthetic files only: the example data, rewritten with other column names, give the same results by this
+route as from the Data Viewer reports.
+
+**Samples.** `read_csv()` reads a file with one row per sample, given a mapping of pupilread's column names to the
+file's. `time` and `pupil` are required. `onset` names a column with the time of text onset in each trial (or gives a
+constant), so that time runs from text onset, and `missing` is the code for missing pupil size:
+
+```python
+import pandas as pd
+import pupilread as pr
+
+samples = pr.read_csv("P01_samples.csv", design="design.csv", onset="TrialOnset", missing=0,
+                      pupil_unit="area",
+                      columns={"reader": "Participant", "trial": "Trial", "time": "Timestamp",
+                               "pupil": "Pupil", "gaze_x": "GazeX", "gaze_y": "GazeY",
+                               "in_blink": "Blink", "in_saccade": "Saccade"})
+```
+
+Without a `trial_end` column, each trial ends at its last sample. For trackers without blink events, `detect_blinks()`
+flags blinks from the pupil signal.
+
+**Fixations.** The fixation-based steps (`compare_levels`, `saccade_steps`, return sweeps in `event_response` and
+`add_covariates`) take a table with one row per fixation. For other trackers, build it from their fixation export:
+
+```python
+f = pd.read_csv("P01_fixations.csv")
+fixations = pd.DataFrame({"reader": f["Participant"], "trial": f["Trial"],
+                          "start": f["Start"] - f["TrialOnset"], "end": f["End"] - f["TrialOnset"],
+                          "duration": f["Duration"], "x": f["X"], "y": f["Y"], "pupil": f["Pupil"],
+                          "blink_around": f["BlinkAround"]})
+```
+
+| Column | Content |
+| --- | --- |
+| reader, trial | As in the samples |
+| start, end, duration | In ms; start and end from text onset |
+| x, y | Fixation position in screen pixels |
+| pupil | Mean pupil size in the fixation (needed only by `compare_levels` and `fixation_means`) |
+| blink_around | Optional: NONE, BEFORE, AFTER or BOTH. Fixations next to a blink are left out, as in the paper; without this column, none are |
+
+Saccade types (forward, regression, return sweep) are set by size thresholds for the paper's layout (20-point text,
+48-pixel lines; `classify_saccades`). For another layout, pass your own function to `saccade_steps(..., classify=...)`.
 
 ## Quick start
 
