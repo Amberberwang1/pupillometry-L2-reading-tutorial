@@ -3,6 +3,7 @@ message: "If you use pupilread, please cite the paper and this version of the pa
 title: "pupilread: pupillometry preprocessing for passage reading"
 version: 1.0.0
 license: MIT
+repository-code: "https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial"
 type: software
 authors:
   - name: "pupilread developers"
@@ -11,5 +12,5 @@ keywords:
   - eye tracking
   - reading
   - preprocessing
-# After review (1.0.1): the authors' names, the GitHub URL (repository-code:) and a
+# After review (1.0.1): the authors' names and a
 # preferred-citation block for the paper.

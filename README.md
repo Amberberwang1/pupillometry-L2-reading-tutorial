@@ -24,14 +24,14 @@ synthetic files only.
 
 ## Installation
 
-Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically). Download or clone
-this repository and, in its folder, run:
+Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically):
 
 ```
-pip install .
+pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.0.0
 ```
 
-The R scripts need R with lme4 (trial means) and mgcv (time course).
+This installs version 1.0.0, the version the paper describes, and needs git. In a downloaded copy of this repository,
+`pip install .` does the same. The R scripts need R with lme4 (trial means) and mgcv (time course).
 
 ## What to export from Data Viewer
 
