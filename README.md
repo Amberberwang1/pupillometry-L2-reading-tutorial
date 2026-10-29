@@ -3,7 +3,8 @@
 Pupil-size preprocessing for **passage reading**: blinks, baselines, gaze-position correction, time-matched windows,
 event responses and data-quality checks, ending with two files for the statistical models in R (lme4 and mgcv).
 
-pupilread implements the pipeline of the tutorial *Pupillometry in L2 reading research* (stages 3.1 to 3.6). It has one
+pupilread implements the pipeline of the paper *Pupillometry for L2 reading research: A step-by-step tutorial for
+eye-tracking researchers* (stages 3.1 to 3.6). It has one
 function per decision, and every default is the paper's primary choice, so calling the functions without arguments
 reproduces the paper's pipeline. The models stay in R, because crossed random effects and GAMMs with an AR1 term are
 best fitted there; the three R scripts ship with the package.
@@ -21,6 +22,14 @@ What it adds for passage reading:
 Status: 1.0.0, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
 reports, 1,000 and 2,000 Hz). Other trackers: see [Other eye trackers](#other-eye-trackers), tested on synthetic
 files only.
+
+## In this repository
+
+| Folder | What it holds |
+| --- | --- |
+| `src/pupilread/` | The package, with the R scripts `lmm.R`, `gamm.R` and `multiverse.R` |
+| `examples/` | The paper's code boxes (Python 1 to 4, R 1 and R 2), exactly as printed, and the settings file for `run_pipeline` (`config_paper.yaml`) |
+| `reproduce/` | The scripts that reproduce Tables 3 and S2 and Figures 2–4 and S1 from the full recordings, and the report of that check |
 
 ## Installation
 
@@ -122,45 +131,19 @@ Rscript gamm.R         # R 2: time-course models (about 30 minutes and 6 GB for 
 The same from the command line: `pupilread example example`, then `pupilread run example --config config.yaml`.
 `pupilread config` prints every setting with its default (see `examples/config_paper.yaml`).
 
-## Stage by stage
+## The paper's code boxes
 
-The paper's pipeline written out (Table 1 of the paper), run from the folder that `make_example()` writes. The
-code boxes of Section 3 (Python 1 to 4, R 1 and 2) are in `examples/code_boxes/`, exactly as printed, and the tests
-run them on the example data.
-
-```python
-import pupilread as pr
-
-samples = pr.read_eyelink("01/sample_report.txt", messages="01/message_report.txt",
-                          reader="01", design="design.csv")                      # 3.1
-fixations = pr.read_fixations("01/fixation_report.txt", messages="01/message_report.txt",
-                              reader="01", design="design.csv")
-samples = pr.pad_blinks(samples, pad_ms=100)                                        # 3.2
-samples = pr.interpolate(samples, max_gap_ms=1000)        # adds pupil_interp; removal stays the default
-loss = pr.data_loss(samples)                              # loss.trials, loss.by_version
-samples, excluded = pr.exclude_trials(samples, min_valid=0.5)
-bins = pr.bin(samples, bin_ms=20, min_valid=0.5)                                    # 3.1
-levels = pr.compare_levels(samples, fixations)                                      # 3.1
-steps = pr.saccade_steps(bins, fixations)                                           # 3.4
-slopes = pr.step_slopes(steps, by="eye")
-bins_g = pr.correct_gaze(bins, slopes, method="steps")    # optional; before baseline()
-bins = pr.baseline(bins, window=(0, 200), method="subtractive")                     # 3.3
-low = pr.low_baselines(bins, min_pct=60)
-trials = pr.trial_means(bins, window=(500, 20000))                                  # 3.5
-pr.plot_baselines(low); pr.plot_grand_mean(bins)                                    # 3.6
-pr.plot_trial(samples, trial=1, xlim=(0, 10))             # one trial at four stages (Figure 2)
-pr.export_for_r(trials, bins, folder="for_R")                                       # 3.7
-```
-
-For several readers, `pr.prepare()` runs stages 3.1 to 3.2 for one reader's samples and `pr.PupilData.concat()` joins
-them; `pr.analyse()` runs the pooled stages. Gaze correction must come before baseline correction, so that the
-baseline is corrected for its own gaze position: `baseline()` and `correct_gaze()` raise a `PipelineOrderWarning`
-when they are applied the other way round, and `run_pipeline` keeps the order.
+`examples/code_boxes/` holds the six code boxes of the paper (Python 1 to 4, R 1 and R 2) exactly as printed; run them
+from the folder that `make_example()` writes. For several readers, `pr.prepare()` runs stages 3.1 and 3.2 for one
+reader's samples, `pr.PupilData.concat()` joins them and `pr.analyse()` runs the pooled stages. Gaze correction must
+come before baseline correction, so that the baseline is corrected for its own gaze position: `baseline()` and
+`correct_gaze()` raise a `PipelineOrderWarning` when they are applied the other way round, and `run_pipeline` keeps
+the order.
 
 ## Functions
 
 Each entry gives the decision the function encodes, its defaults (the paper's primary choices) and the section of the
-paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.md`.
+paper it belongs to. Full docstrings: `help(pr.<function>)`.
 
 ### 3.1 Reading data and data level
 
@@ -241,8 +224,6 @@ paper it belongs to. Full docstrings: `help(pr.<function>)` or `docs/reference.m
   | `eye` | `left` (default), `right` or `midline`: where the positions were measured from |
   | `eye_separation` | distance between the eyes (default 64 mm); each recorded eye is placed at its own position |
 
-  `tools/geometric_vs_pypillometry.py` checks the correction against the geometric model of pypillometry 2.
-
 ### 3.5 Trial length and events
 
 - **`trial_means(bins, window=(500, 20000), cut_before_keypress_ms=0)`**: one value per trial, the mean change in a
@@ -297,37 +278,11 @@ environment.
 
 ## Reproducing the paper
 
-`tools/reproduce_paper.py` (in this repository; the released package leaves out `tools/`, including the `--legacy` mode below) reruns the paper's analysis from the raw Data Viewer reports with the package (stage 1 on the
-machine that holds the reports, stage 2 with R), fits Tables 3 and S2, recomputes every number quoted in the text and
-compares each with the value printed in the paper. With the package's defaults, all of them match
-(`docs/reproduction.md`).
-
-The first full-study draft of the paper was computed with earlier scripts. With `prepare --legacy`, the package imposes
-three assumptions of those scripts and then reproduces every trial value, every 20 ms bin and every number of that draft
-exactly. pupilread corrects them (see `CHANGELOG.md`), which moved the estimates of Table 3 by −0.08 to +0.10
-percentage points (primary estimate 1.27% in the draft, 1.37% now):
-
-1. durations counted in samples assumed 1,000 Hz, so 6 of the 45 recordings, made at 2,000 Hz, got 50 ms blink
-   padding;
-2. the blink padding summed blink flags in 8-bit integers, which overflow where blinks fill more than 127 of the 201
-   samples around a sample, so short gaps between blinks stayed valid;
-3. one reader's reports listed every row twice, which also doubled that reader's word counts in the screen for skimmed
-   texts and excluded five of the reader's trials as read too fast.
-
-## Tests
-
-In the repository folder:
-
-```
-pip install ".[test]"
-pytest
-```
-
-The tests use tiny synthetic trials with known answers (a blink of known length is padded to the right length, a
-constant pupil gives zero change, a known gaze artifact is recovered from the saccade steps and removed, a pupil
-foreshortened by a known layout is restored, and so on)
-and the synthetic example data, on which they also run the paper's code boxes as printed; the R scripts and boxes are
-run when R, lme4 and mgcv are installed.
+`reproduce/reproduce_paper.py` reruns the paper's analysis from the raw Data Viewer reports, which are available from
+the authors on reasonable request. Stage 1 prepares each reader's data; stage 2 (with R) fits Tables 3 and S2 and
+compares every number quoted in the paper with the value it computes. `reproduce/paper_figures.py` draws Figures 2–4
+and S1. With the package's defaults, all 36 estimates of Tables 3 and S2 and all 84 numbers quoted in the text and
+supplement match (`reproduce/reproduction.md`).
 
 ## Citation and licence
 

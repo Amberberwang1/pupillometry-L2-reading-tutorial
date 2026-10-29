@@ -11,7 +11,7 @@ requires-python = ">=3.9"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{name = "pupilread developers"}]
-# After review (1.0.1): the authors' names and the GitHub URL in place of the anonymised repository.
+# After review: the authors' names.
 keywords = ["pupillometry", "eye tracking", "reading", "EyeLink", "preprocessing", "psycholinguistics"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -30,12 +30,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://anonymous.4open.science/r/pupillometry-L2-reading-tutorial-BDE7/README.md"
-Documentation = "https://anonymous.4open.science/r/pupillometry-L2-reading-tutorial-BDE7/docs/reference.md"
-Changelog = "https://anonymous.4open.science/r/pupillometry-L2-reading-tutorial-BDE7/CHANGELOG.md"
-
-[project.optional-dependencies]
-test = ["pytest>=7"]
+Homepage = "https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial"
 
 [project.scripts]
 pupilread = "pupilread.cli:main"
@@ -45,6 +40,3 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 pupilread = ["R/*.R"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
