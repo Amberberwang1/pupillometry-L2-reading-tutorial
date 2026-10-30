@@ -28,7 +28,7 @@ files only.
 | Folder | What it holds |
 | --- | --- |
 | `src/pupilread/` | The package, with the R scripts `lmm.R`, `gamm.R` and `multiverse.R` |
-| `examples/` | The paper's code boxes (Python 1 to 4, R 1 and R 2), exactly as printed, and the settings file for `run_pipeline` (`config_paper.yaml`) |
+| `examples/` | The paper's code boxes (Python 1 to 5, R 1 and R 2), exactly as printed, and the settings file for `run_pipeline` (`config_paper.yaml`) |
 
 ## Installation
 
@@ -163,8 +163,9 @@ later). A function that returns two tables, such as `exclude_trials()`, returns 
 
 ## The paper's code boxes
 
-`examples/code_boxes/` holds the six code boxes of the paper (Python 1 to 4, R 1 and R 2) exactly as printed; run them
-from the folder that `make_example()` writes. For several readers, `pr.prepare()` runs stages 3.1 and 3.2 for one
+`examples/code_boxes/` holds the seven code boxes of the paper (Python 1 to 5, R 1 and R 2) exactly as printed. Run the
+Python boxes in order, in one session: Python 1 writes the example data into `example/` and runs `run_pipeline`;
+Python 2 to 5 then go through the stages for reader 01. For several readers, `pr.prepare()` runs stages 3.1 and 3.2 for one
 reader's samples, `pr.PupilData.concat()` joins them and `pr.analyse()` runs the pooled stages. Gaze correction must
 come before baseline correction, so that the baseline is corrected for its own gaze position: `baseline()` and
 `correct_gaze()` raise a `PipelineOrderWarning` when they are applied the other way round, and `run_pipeline` keeps
