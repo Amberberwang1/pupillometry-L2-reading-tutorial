@@ -10,7 +10,7 @@ One function per decision, with the paper's primary choice as the default::
     trials = pr.trial_means(bins, window=(500, 20000))
     pr.export_for_r(trials, bins, folder="for_R")
 
-or the whole sequence with :func:`run_pipeline`.
+or the whole sequence with :func:`run_pipeline`. ``pr.guide()`` explains the functions in plain language.
 """
 from ._utils import SAMPLE_COLUMNS, PipelineOrderWarning
 from ._version import __version__
@@ -22,6 +22,7 @@ from .example import make_example
 from .export import export_for_r, gamm_bins, r_script_path
 from .gaze import (LAYOUT_SETTINGS, MAP_KNOTS, classify_saccades, correct_gaze, foreshortening, geometric_scale,
                    hat_basis, read_layout, regression_slopes, saccade_steps, step_slopes)
+from .guide import guide
 from .io import read_csv, read_design, read_eyelink, read_fixations, read_messages, to_diameter, trial_windows
 from .levels import Levels, bin, compare_levels, fixation_means, retained_fixations
 from .options import CONTROLS, CONTROLS_COS_THETA, OPTIONAL_CONTROLS, PAPER_OPTIONS, options_spec, options_table
@@ -53,6 +54,6 @@ __all__ = [
     # pipeline
     "run_pipeline", "prepare", "prepare_readers", "analyse", "find_readers", "read_reader", "load_config",
     "default_config_yaml", "DEFAULTS", "PupilData", "Result", "levels_summary", "summarise_events",
-    # example data
-    "make_example",
+    # example data and guide
+    "make_example", "guide",
 ]

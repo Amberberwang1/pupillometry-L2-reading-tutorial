@@ -1,4 +1,4 @@
-"""Command line: ``pupilread run``, ``pupilread prepare``, ``pupilread example``, ``pupilread config``, ``pupilread scripts``."""
+"""Command line: ``pupilread run``, ``pupilread prepare``, ``pupilread example``, ``pupilread config``, ``pupilread scripts``, ``pupilread guide``."""
 from __future__ import annotations
 
 import argparse
@@ -28,6 +28,8 @@ def main(argv=None) -> int:
     sub.add_parser("config", help="print the default settings as YAML")
     sc = sub.add_parser("scripts", help="copy lmm.R, gamm.R and multiverse.R into a folder")
     sc.add_argument("folder", nargs="?", default=".")
+    gd = sub.add_parser("guide", help="explain the functions of Table 1 in plain language")
+    gd.add_argument("topic", nargs="?", default=None, help='a stage ("3.3") or a function ("baseline")')
     a = p.parse_args(argv)
     if a.cmd == "run":
         from .pipeline import run_pipeline
@@ -48,6 +50,9 @@ def main(argv=None) -> int:
         for s in R_SCRIPTS:
             shutil.copyfile(r_script_path(s), os.path.join(a.folder, s))
         print(f"copied {', '.join(R_SCRIPTS)} to {a.folder}")
+    elif a.cmd == "guide":
+        from .guide import guide
+        guide(a.topic)
     else:
         p.print_help()
     return 0
