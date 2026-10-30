@@ -39,7 +39,8 @@ pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutoria
 ```
 
 This installs version 1.0.0, the version the paper describes, and needs git. In a downloaded copy of this repository,
-`pip install .` does the same. The R scripts need R with lme4 (trial means) and mgcv (time course).
+`pip install .` does the same. The R scripts need R with lme4 (trial means) and mgcv (time course). To run pupilread
+from R, see [Using pupilread from R](#using-pupilread-from-r).
 
 ## What to export from Data Viewer
 
@@ -130,6 +131,36 @@ Rscript gamm.R         # R 2: time-course models (about 30 minutes and 6 GB for 
 The same from the command line: `pupilread example example`, then `pupilread run example --config config.yaml`.
 `pupilread config` prints every setting with its default (see `examples/config_paper.yaml`).
 
+## Using pupilread from R
+
+The R package reticulate runs pupilread from R, so the whole analysis can stay in one R session. Once, to install
+pupilread in its own Python environment (this needs Python 3.9 or later; `reticulate::install_python()` installs it):
+
+```r
+install.packages("reticulate")
+reticulate::virtualenv_create("pupilread")
+reticulate::virtualenv_install("pupilread",
+  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.0.0")
+```
+
+Then, in each session:
+
+```r
+library(reticulate)
+use_virtualenv("pupilread")
+pr <- import("pupilread", convert = FALSE)
+
+pr$make_example("example")
+result <- pr$run_pipeline("example", list(data = list(design = "example/design.csv",
+                                                     exclude = "example/exclusions.csv")))
+source("example/pupilread_output/for_R/lmm.R", chdir = TRUE)   # R 1
+```
+
+In R, `pr.` becomes `pr$` and a pair such as `(0, 500)` becomes `c(0, 500)`: `pr$baseline(bins, window = c(0, 500))`.
+`convert = FALSE` keeps each table in Python between stages, together with the settings that later stages use and
+`export_for_r()` records; `py_to_r()` turns a table into an R data frame (with pandas 3, this needs reticulate 1.45 or
+later). A function that returns two tables, such as `exclude_trials()`, returns them as `out[0]` and `out[1]`.
+
 ## The paper's code boxes
 
 `examples/code_boxes/` holds the six code boxes of the paper (Python 1 to 4, R 1 and R 2) exactly as printed; run them
@@ -142,7 +173,9 @@ the order.
 ## Functions
 
 Each entry gives the decision the function encodes, its defaults (the paper's primary choices) and the section of the
-paper it belongs to. Full docstrings: `help(pr.<function>)`.
+paper it belongs to. Full docstrings: `help(pr.<function>)`. `pr.guide()` explains the functions of Table 1 of the
+paper in plain language, by stage (`pr.guide("3.3")`) or one at a time (`pr.guide("baseline")`); from the command
+line, `pupilread guide baseline`.
 
 ### 3.1 Reading data and data level
 
