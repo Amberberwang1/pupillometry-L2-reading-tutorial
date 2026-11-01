@@ -164,7 +164,7 @@ later). A function that returns two tables, such as `exclude_trials()`, returns 
 ## The paper's code boxes
 
 `examples/code_boxes/` holds the seven code boxes of the paper (Python 1 to 5, R 1 and R 2) exactly as printed. Run the
-Python boxes in order, in one session: Python 1 writes the example data into `example/` and runs `run_pipeline`;
+Python boxes in order, in one session: Python 1 writes the example data into `example/`;
 Python 2 to 5 then go through the stages for reader 01. For several readers, `pr.prepare()` runs stages 3.1 and 3.2 for one
 reader's samples, `pr.PupilData.concat()` joins them and `pr.analyse()` runs the pooled stages. Gaze correction must
 come before baseline correction, so that the baseline is corrected for its own gaze position: `baseline()` and
