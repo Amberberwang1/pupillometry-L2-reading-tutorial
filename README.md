@@ -171,6 +171,16 @@ come before baseline correction, so that the baseline is corrected for its own g
 `correct_gaze()` raise a `PipelineOrderWarning` when they are applied the other way round, and `run_pipeline` keeps
 the order.
 
+## The paper's data
+
+The pupil data of the paper's worked example are attached to the
+[1.0.0 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.0.0) as
+`pupilread_paper_data.zip` (388 MB; 3.1 GB unzipped): the sample, message and fixation reports of the 45 readers,
+trimmed to the reading period, with the design, exclusion and layout files. In the unzipped folder,
+`pr.run_pipeline("readers", "config.yaml")` followed by the R scripts reproduces the primary estimate and all but three
+rows of Tables 3 and S2; the scripts in its `reproduce/` folder reproduce every number, table and figure of the paper. The zip's README
+explains both routes. The data are shared under CC BY 4.0.
+
 ## Functions
 
 Each entry gives the decision the function encodes, its defaults (the paper's primary choices) and the section of the
@@ -270,7 +280,7 @@ line, `pupilread guide baseline`.
 ### 3.6 Checks and figures
 
 `plot_trial` (one trial at four stages: raw samples, blinks padded and removed, 20 ms bins and the baseline-corrected
-change; Figure 2), `plot_overlays` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
+change; Figure 2, with `zoom=(3.0, 3.5)` enlarging half a second of the bins), `plot_overlays` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
 (data loss and blink and saccade rates by version), `plot_gaze` (gaze position by version) and `plot_grand_mean`
 (Figure 3B: 1 s bins, 95% confidence intervals, points with at least 20 readers). All figures are black and white.
 
