@@ -280,7 +280,7 @@ line, `pupilread guide baseline`.
 ### 3.6 Checks and figures
 
 `plot_trial` (one trial at four stages: raw samples, blinks padded and removed, 20 ms bins and the baseline-corrected
-change; Figure 2, with `zoom=(3.0, 3.5)` enlarging half a second of the bins), `plot_overlays` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
+change; Figure 2, with `zoom=(3.0, 3.5)` adding a close-up of half a second of the bins), `plot_overlays` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
 (data loss and blink and saccade rates by version), `plot_gaze` (gaze position by version) and `plot_grand_mean`
 (Figure 3B: 1 s bins, 95% confidence intervals, points with at least 20 readers). All figures are black and white.
 
