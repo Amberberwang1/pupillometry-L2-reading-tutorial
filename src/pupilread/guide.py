@@ -36,8 +36,8 @@ STAGES = [
         ("plot_trial()", [
             "Draws Figure 2: one trial as raw samples, after blink removal, in 20 ms bins and after baseline "
             "correction. It runs these steps itself, so it takes the samples, not the bins.",
-            "Over a whole trial, the bins look like the samples. zoom=(3.0, 3.5) enlarges half a second in the bins "
-            "panel, so each bin mean can be seen against its samples.",
+            "Over a whole trial, the bins look like the samples. zoom=(3.0, 3.5) adds a close-up of half a second "
+            "below the four steps, so each bin mean can be seen against its samples.",
         ]),
     ]),
     ("3.2", "Blinks and artifacts", [
