@@ -6,7 +6,7 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._utils import ok_mask, sort_trials
+from ._utils import ok_mask, sampling_rate, sort_trials
 
 LINESTYLES = ["-", (0, (4, 2)), (0, (1, 1.5)), (0, (6, 2, 1, 2))]
 
@@ -61,14 +61,15 @@ def _runs(mask):
 def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, bin_ms: float = 20,
                window: Tuple[float, float] = (0, 200), pupil_range: Tuple[float, float] = (100, 10000),
                min_valid: float = 0.5, reader_mean: Optional[float] = None,
-               xlim: Optional[Tuple[float, float]] = None):
+               xlim: Optional[Tuple[float, float]] = None, zoom: Optional[Tuple[float, float]] = None):
     """One trial at four stages of the pipeline (stages 3.1 to 3.3; Figure 2 of the paper).
 
     (A) The raw samples, with the blinks the tracker marked shaded. (B) The samples after each blink is padded by
     ``pad_ms`` and the padded and invalid samples are removed (:func:`pad_blinks`), with the padded stretches shaded.
-    (C) The ``bin_ms`` bins (:func:`bin`). (D) The bins after subtractive baseline correction over ``window``, as a
-    percentage of the reader mean (:func:`baseline`), with the baseline window shaded. The panels run the package's
-    own functions, so they show exactly what the pipeline does to the trial.
+    (C) The ``bin_ms`` bins (:func:`bin`); with ``zoom``, panel C instead enlarges a short stretch, boxed in panel B,
+    and draws the samples (grey line) with their bin means (black bars). (D) The bins after subtractive baseline
+    correction over ``window``, as a percentage of the reader mean (:func:`baseline`), with the baseline window
+    shaded. The panels run the package's own functions, so they show exactly what the pipeline does to the trial.
 
     Parameters
     ----------
@@ -86,6 +87,10 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
         (:func:`reader_means`); the pipeline takes it over the trials kept after the exclusions.
     xlim : (start, end), optional
         Time range in seconds from text onset (default: the whole trial).
+    zoom : (start, end), optional
+        A short stretch in seconds, such as (3.0, 3.5), for panel C to enlarge. Over a whole trial, the samples and
+        their bin means look alike, because binning changes pupil size by only a few units; enlarged, the difference
+        shows (Figure 2 of the paper uses (3.0, 3.5)).
 
     Returns
     -------
@@ -122,8 +127,14 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
     t = st["time"].to_numpy(float) / 1000
     tb = bt["time"].to_numpy(float) / 1000
     okb = ok_mask(bt)
-    fig, axs = plt.subplots(4, 1, figsize=(6.6, 6.4), sharex=True)
-    fig.subplots_adjust(hspace=0.45)
+    hz = sampling_rate(st)
+    fig = plt.figure(figsize=(6.6, 6.4 if zoom is None else 7.0))
+    gs = fig.add_gridspec(4, 1, hspace=0.45 if zoom is None else 0.55)
+    axs = [fig.add_subplot(gs[0])]
+    for i in (1, 2, 3):                             # A, B and D share the time axis; C too, unless it is enlarged
+        axs.append(fig.add_subplot(gs[i], sharex=None if (i == 2 and zoom is not None) else axs[0]))
+    for i in ((0, 1) if zoom is not None else (0, 1, 2)):
+        axs[i].tick_params(labelbottom=False)
     shade = "#e6e6e6"
 
     def spans(ax, mask):
@@ -134,14 +145,44 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
     ax = axs[0]
     spans(ax, st["in_blink"].to_numpy(bool))
     ax.plot(t, st["pupil_raw"], color="k", lw=0.5)
-    ax.set_title("Raw samples, with the tracker\u2019s blinks shaded", fontsize=8, loc="left")
+    ax.set_title(f"Raw samples ({hz:,.0f} per second), with the tracker\u2019s blinks shaded", fontsize=8, loc="left")
     ax = axs[1]
     spans(ax, st["blink_pad"].to_numpy(bool))
     ax.plot(t, st["pupil"], color="k", lw=0.5)
     ax.set_title(f"Blinks padded by {pad_ms:g} ms and removed", fontsize=8, loc="left")
     ax = axs[2]
-    ax.plot(tb, np.where(okb, bt["pupil"].to_numpy(float), np.nan), color="k", lw=0.7, drawstyle="steps-post")
-    ax.set_title(f"{bin_ms:g} ms bins", fontsize=8, loc="left")
+    yb = np.where(okb, bt["pupil"].to_numpy(float), np.nan)
+    if zoom is None:
+        ax.plot(tb, yb, color="k", lw=0.7, drawstyle="steps-post")
+        ax.set_title(f"{bin_ms:g} ms bins", fontsize=8, loc="left")
+    else:
+        from matplotlib.patches import Rectangle
+        from matplotlib.ticker import MultipleLocator
+        z0, z1 = float(zoom[0]), float(zoom[1])
+        if not z1 > z0:
+            raise ValueError("plot_trial: zoom must be (start, end) with end > start, in seconds")
+        zs = [f"{v:.1f}" if abs(v * 10 - round(v * 10)) < 1e-9 else f"{v:g}" for v in (z0, z1)]
+        m = (t >= z0) & (t <= z1)
+        mb = (tb >= z0) & (tb < z1)
+        yz = st["pupil"].to_numpy(float)[m]
+        lab = "Samples (one per ms)" if round(hz) == 1000 else f"Samples ({hz:,.0f} per second)"
+        ax.plot(t[m], yz, color="#9a9a9a", lw=0.6, label=lab)
+        ax.hlines(yb[mb], tb[mb], tb[mb] + bin_ms / 1000, color="k", lw=1.6, label=f"{bin_ms:g} ms bin means")
+        ax.set_xlim(z0, z1)
+        if (z1 - z0) * 1000 / bin_ms <= 100:         # minor ticks at the bin edges
+            ax.xaxis.set_minor_locator(MultipleLocator(bin_ms / 1000))
+            ax.tick_params(axis="x", which="minor", length=2, width=0.5)
+        if np.isfinite(yz).any():
+            y0, y1 = np.nanmin(yz), np.nanmax(yz)
+            r = max(y1 - y0, 1.0)
+            ax.set_ylim(y0 - 0.12 * r, y1 + 0.3 * r)   # room for the legend
+            hb = st["pupil_raw"].to_numpy(float)
+            hb = np.nanmax(hb[np.isfinite(hb)]) if np.isfinite(hb).any() else y1
+            axs[1].add_patch(Rectangle((z0, y0 - 0.05 * hb), z1 - z0, y1 - y0 + 0.1 * hb, fill=False, ec="#555555",
+                                       lw=0.6, zorder=3))
+            axs[1].text((z0 + z1) / 2, y0 - 0.07 * hb, "C", ha="center", va="top", fontsize=7, fontweight="bold")
+        ax.legend(loc="upper right", fontsize=7, handlelength=1.6, ncol=2, borderaxespad=0.1)
+        ax.set_title(f"{bin_ms:g} ms bins: {zs[0]}\u2013{zs[1]} s enlarged (box C in panel B)", fontsize=8, loc="left")
     info = samples.attrs or {}
     what = "diameter" if info.get("pupil_unit") == "diameter" else "area"
     unit = "\n(arbitrary units)" if info.get("tracker", "EyeLink") == "EyeLink" else ""
@@ -157,9 +198,9 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
     lo, hi = (xlim if xlim is not None else (0, max(t.max(), tb.max() + bin_ms / 1000)))
     ax.set_xlim(lo, hi)
     vals = st["pupil_raw"].to_numpy(float)[(t >= lo) & (t <= hi)]
-    if np.isfinite(vals).any():                     # A to C share the scale of the raw samples shown
+    if np.isfinite(vals).any():                     # A to C (A and B with zoom) share the scale of the raw samples shown
         top = np.nanmax(vals)
-        for ax in axs[:3]:
+        for ax in axs[:2] if zoom is not None else axs[:3]:
             ax.set_ylim(0, top * 1.05)
     cv = bt["change"].to_numpy(float)[(tb >= lo) & (tb <= hi)]
     if np.isfinite(cv).any():                       # D: the range of the change shown, with zero in view
