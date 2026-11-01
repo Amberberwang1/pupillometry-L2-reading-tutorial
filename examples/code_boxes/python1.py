@@ -2,8 +2,3 @@
 # pip install https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/archive/refs/tags/v1.0.0.zip
 import pupilread as pr
 pr.make_example("example")          # simulated study: 3 readers, 4 texts each
-settings = {"data": {
-    "design": "example/design.csv",       # text and version of each trial
-    "exclude": "example/exclusions.csv",  # trials to leave out
-}}
-result = pr.run_pipeline("example", settings)   # all stages, every reader
