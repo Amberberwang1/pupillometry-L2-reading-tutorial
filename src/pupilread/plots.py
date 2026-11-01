@@ -62,7 +62,7 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
                window: Tuple[float, float] = (0, 200), pupil_range: Tuple[float, float] = (100, 10000),
                min_valid: float = 0.5, reader_mean: Optional[float] = None,
                xlim: Optional[Tuple[float, float]] = None, zoom: Optional[Tuple[float, float]] = None):
-    """One trial at four stages of the pipeline (stages 3.1 to 3.3; Figure 2 of the paper).
+    """One trial at four stages of the pipeline, in the order of processing (stages 3.1 to 3.3; Figure 2 of the paper).
 
     (A) The raw samples, with the blinks the tracker marked shaded. (B) The samples after each blink is padded by
     ``pad_ms`` and the padded and invalid samples are removed (:func:`pad_blinks`), with the padded stretches shaded.
@@ -149,12 +149,12 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
     ax = axs[1]
     spans(ax, st["blink_pad"].to_numpy(bool))
     ax.plot(t, st["pupil"], color="k", lw=0.5)
-    ax.set_title(f"Blinks padded by {pad_ms:g} ms and removed", fontsize=8, loc="left")
+    ax.set_title(f"Step 1: blinks padded by {pad_ms:g} ms and removed (Section 3.2)", fontsize=8, loc="left")
     ax = axs[2]
     yb = np.where(okb, bt["pupil"].to_numpy(float), np.nan)
     if zoom is None:
         ax.plot(tb, yb, color="k", lw=0.7, drawstyle="steps-post")
-        ax.set_title(f"{bin_ms:g} ms bins", fontsize=8, loc="left")
+        ax.set_title(f"Step 2: {bin_ms:g} ms bins (Section 3.1)", fontsize=8, loc="left")
     else:
         from matplotlib.patches import Rectangle
         from matplotlib.ticker import MultipleLocator
@@ -182,7 +182,8 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
                                        lw=0.6, zorder=3))
             axs[1].text((z0 + z1) / 2, y0 - 0.07 * hb, "C", ha="center", va="top", fontsize=7, fontweight="bold")
         ax.legend(loc="upper right", fontsize=7, handlelength=1.6, ncol=2, borderaxespad=0.1)
-        ax.set_title(f"{bin_ms:g} ms bins: {zs[0]}\u2013{zs[1]} s enlarged (box C in panel B)", fontsize=8, loc="left")
+        ax.set_title(f"Step 2: {bin_ms:g} ms bins (Section 3.1), {zs[0]}\u2013{zs[1]} s enlarged (box C in panel B)",
+                     fontsize=8, loc="left")
     info = samples.attrs or {}
     what = "diameter" if info.get("pupil_unit") == "diameter" else "area"
     unit = "\n(arbitrary units)" if info.get("tracker", "EyeLink") == "EyeLink" else ""
@@ -192,7 +193,8 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
     ax.axvspan(window[0] / 1000, window[1] / 1000, color=shade, lw=0, zorder=0)
     ax.axhline(0, color="k", lw=0.4)
     ax.plot(tb, bt["change"].to_numpy(float), color="k", lw=0.7, drawstyle="steps-post")
-    ax.set_title(f"Baseline-corrected ({window[0]:g}\u2013{window[1]:g} ms baseline shaded)", fontsize=8, loc="left")
+    ax.set_title(f"Step 3: baseline-corrected, {window[0]:g}\u2013{window[1]:g} ms baseline shaded (Section 3.3)",
+                 fontsize=8, loc="left")
     ax.set_ylabel("Change from baseline\n(% of reader mean)")
     ax.set_xlabel("Time from text onset (s)")
     lo, hi = (xlim if xlim is not None else (0, max(t.max(), tb.max() + bin_ms / 1000)))
