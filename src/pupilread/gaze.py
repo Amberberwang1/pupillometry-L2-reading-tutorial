@@ -2,8 +2,12 @@
 
 Gaze-position (pupil-foreshortening) artifacts change measured pupil size immediately, whereas real pupil responses start
 no earlier than about 220 ms after their cause (Mathot et al., 2018). The step in pupil size across each saccade, from
-just before saccade onset to 20-120 ms after landing, therefore estimates the artifact; regressing the steps on the
-saccade's horizontal and vertical size gives the artifact per pixel of gaze shift (Python 4 of the paper).
+just before saccade onset to 20-120 ms after landing, therefore estimates the artifact. This timing logic is that of
+Snip & Stitch (Stribos et al., 2026, Behavior Research Methods, 58(4), Article 95), which corrects one saccade at a
+time. Saccade steps is designed for passage reading, with its continuous stream of saccades: it pools the steps of all
+saccades into a map of the artifact across horizontal and vertical gaze position (100 px sections)
+(:func:`step_slopes`, ``method="map"``; Python 4 of the paper), and removes the artifact from every bin according to
+gaze position (:func:`correct_gaze`). ``method="joint"`` gives one artifact per pixel (a straight line) instead.
 
 The geometric model of Hayes and Petrov (2016) instead predicts the artifact from the measured positions of eye, camera
 and screen (:func:`read_layout`, :func:`foreshortening`), with no parameter estimated from the pupil data. An
@@ -48,7 +52,7 @@ def _window_mean(arr, a, z, bin_ms, need):
 def saccade_steps(bins: pd.DataFrame, fixations: pd.DataFrame, after: Tuple[float, float] = (20, 120), before: float = 100,
                   late: Tuple[float, float] = (300, 600), max_gap_ms: float = 100, start_after_ms: float = 500,
                   min_fix_ms: float = 80, min_bins: int = 3, min_bins_late: int = 8, means: Optional[pd.Series] = None,
-                  classify=classify_saccades) -> pd.DataFrame:
+                  classify=classify_saccades, detrend: Optional[float] = 100) -> pd.DataFrame:
     """Measure the pupil step across every saccade between two retained fixations (stage 3.4).
 
     Parameters
@@ -69,13 +73,21 @@ def saccade_steps(bins: pd.DataFrame, fixations: pd.DataFrame, after: Tuple[floa
         Saccades must start at least this long after text onset, and end at least ``late[1]`` before the trial ends.
     min_bins, min_bins_late : int
         Valid bins needed in the before/after windows and in the late window.
+    detrend : float or None
+        Length (ms) of the stretch before saccade onset whose trend is taken out of the step (default 100; the
+        default from version 1.1.0). The pupil is usually already changing slowly when a saccade starts; a straight
+        line fitted to the bins of this stretch is extended to the middle of the ``after`` window, and the step is the
+        measured value minus this expected value (as in Snip & Stitch + Slope; Stribos et al., 2026). In the paper's
+        data this made the steps much more predictable from gaze position. ``None`` or 0 gives the plain difference
+        between the two windows (version 1.0.0); the plain difference is always kept in the column ``step_raw``.
 
     Returns
     -------
     DataFrame
         One row per saccade: reader, item, trial, version, eye, type (see :func:`classify_saccades`), x0, y0, x1, y1,
         dx, dy, gap, start (saccade onset = fixation end), landing (next fixation start), ref (pupil before onset, % of
-        reader mean), step (after minus before) and late (late window minus before).
+        reader mean), step (after minus before, with the trend before onset taken out when ``detrend`` is set),
+        step_raw (after minus before) and late (late window minus before).
     """
     check_columns(bins, ["reader", "trial", "time", "pupil", "n_valid"], "saccade_steps")
     bin_ms = float((bins.attrs or {}).get("bin_ms", 20))
@@ -112,12 +124,18 @@ def saccade_steps(bins: pd.DataFrame, fixations: pd.DataFrame, after: Tuple[floa
             ref = _window_mean(arr, q.S - before, q.S, bin_ms, min_bins)
             imm = _window_mean(arr, q.L + after[0], q.L + after[1], bin_ms, min_bins)
             lt = _window_mean(arr, q.L + late[0], q.L + late[1], bin_ms, min_bins_late)
+            raw = imm - ref
+            step = raw
+            if detrend:
+                # trend before onset, extended from the middle of the before window to the middle of the after window
+                slope = _window_slope(arr, q.S - detrend, q.S, bin_ms, 3)
+                step = raw - slope * ((q.L + (after[0] + after[1]) / 2.0) - (q.S - before / 2.0))
             rows.append((r, getattr(q, "item", tr), tr, getattr(q, "version", None), getattr(q, "eye", None), q.type,
-                         q.x, q.y, q.nx, q.ny, q.dx, q.dy, q.gap, q.S, q.L, ref, imm - ref, lt - ref))
+                         q.x, q.y, q.nx, q.ny, q.dx, q.dy, q.gap, q.S, q.L, ref, step, raw, lt - ref))
     cols = ["reader", "item", "trial", "version", "eye", "type", "x0", "y0", "x1", "y1", "dx", "dy", "gap", "start",
-            "landing", "ref", "step", "late"]
+            "landing", "ref", "step", "step_raw", "late"]
     out = pd.DataFrame(rows, columns=cols)
-    out.attrs = {"after": tuple(after), "before": before, "bin_ms": bin_ms}
+    out.attrs = {"after": tuple(after), "before": before, "bin_ms": bin_ms, "detrend": detrend or None}
     return out
 
 
@@ -127,9 +145,10 @@ def _ols(X, y):
 
 
 JOINT_TYPES = ("forward", "regression", "return sweep")
-#: Knots (px) of the exploratory horizontal artifact map, for a 1,024-pixel-wide display; the knot at 500 px is the
-#: reference (artifact 0).
+#: Knots (px) of the artifact map (the paper's saccade-steps correction) across horizontal and vertical gaze position,
+#: for a 1,024 x 768 pixel display; the knots at 500 px (horizontal) and 400 px (vertical) are the references (0).
 MAP_KNOTS = tuple(range(0, 1001, 100))
+MAP_KNOTS_Y = tuple(range(0, 801, 100))
 
 
 def hat_basis(x, knots) -> np.ndarray:
@@ -140,9 +159,32 @@ def hat_basis(x, knots) -> np.ndarray:
     return np.column_stack([np.interp(x, knots, eye[j]) for j in range(len(knots))])
 
 
-def step_slopes(steps: pd.DataFrame, by: Optional[str] = "eye", method: str = "joint", min_saccades: int = 50,
-                knots=MAP_KNOTS, reference: float = 500) -> pd.DataFrame:
-    """Artifact per pixel of gaze shift, from the saccade steps (stage 3.4).
+def _window_slope(arr, a, z, bin_ms, need):
+    """Slope (per ms) of a straight line through the valid bins from ``a`` to ``z`` ms; NaN with fewer than ``need``."""
+    i0, i1 = max(int(math.ceil(a / bin_ms)), 0), max(int(math.floor(z / bin_ms)), 0)
+    seg = arr[i0:i1]
+    ok = np.isfinite(seg)
+    if ok.sum() < need:
+        return np.nan
+    tt = (np.arange(i0, i1) * bin_ms + bin_ms / 2.0)[ok]
+    tt = tt - tt.mean()
+    den = float((tt * tt).sum())
+    return float((tt * (seg[ok] - seg[ok].mean())).sum() / den) if den > 0 else np.nan
+
+
+def _supported(v0, v1, knots, reference, min_n):
+    """Knots with at least ``min_n`` saccade starts and landings between their two neighbours (plus the reference)."""
+    ends = np.r_[np.asarray(v0, float), np.asarray(v1, float)]
+    edges = [-np.inf] + list(knots) + [np.inf]
+    support = [int(((ends > edges[i]) & (ends < edges[i + 2])).sum()) for i in range(len(knots))]
+    return [k for k, s in zip(knots, support) if s >= min_n or k == float(reference)]
+
+
+def step_slopes(steps: pd.DataFrame, by: Optional[str] = "eye", method: str = "map", min_saccades: int = 50,
+                knots=MAP_KNOTS, reference: float = 500, min_knot_saccades: int = 200, knots_y=MAP_KNOTS_Y,
+                reference_y: float = 400) -> pd.DataFrame:
+    """The gaze-position artifact, from the saccade steps (stage 3.4): a map across the screen (paper) or one
+    artifact per pixel.
 
     Parameters
     ----------
@@ -151,23 +193,34 @@ def step_slopes(steps: pd.DataFrame, by: Optional[str] = "eye", method: str = "j
     by : {"eye", "reader", None}
         Estimate slopes per recorded eye (paper), per reader (readers with more than ``min_saccades`` saccades), or
         pooled.
-    method : {"joint", "by_type", "map"}
-        ``joint``: one regression of the step on horizontal and vertical saccade size over forward saccades,
-        regressions and return sweeps (paper). ``by_type`` (exploratory): the horizontal slope from within-line
-        saccades only and the vertical slope from vertical saccades only, because return sweeps move gaze left and down
-        at once. ``map`` (exploratory): a piecewise-linear map of horizontal position with knots at ``knots`` (the
-        knot at ``reference`` fixed at 0) plus a linear vertical slope, fitted to all classified saccades.
+    method : {"map", "joint", "by_type"}
+        ``map`` (paper; the default from version 1.1.0): the artifact at a gaze position is the sum of a map across
+        horizontal position and a map across vertical position, each piecewise linear with knots at ``knots`` and
+        ``knots_y`` (the knots at ``reference`` and ``reference_y`` fixed at 0), fitted to all classified saccades.
+        The artifact can therefore grow faster in one part of the screen than in another. In the paper's data, a map
+        fitted without the return sweeps predicted their steps, whereas one artifact per pixel did not.
+        ``joint`` (the default of version 1.0.0): one artifact per pixel, from one regression of the step on
+        horizontal and vertical saccade size over forward saccades, regressions and return sweeps. ``by_type``
+        (exploratory): the horizontal slope from within-line saccades only and the vertical slope from vertical
+        saccades only.
+    knots, reference, knots_y, reference_y : list of float, float
+        For ``map``: the horizontal and vertical positions (px) of the map's knots, and the knots fixed at 0.
+    min_knot_saccades : int
+        For ``map``: a knot is fitted only if at least this many saccade starts and landings lie between its two
+        neighbouring knots; beyond the outermost fitted knots the map is flat.
 
     Returns
     -------
     DataFrame
-        One row per group: bX and bY (% of the reader mean per pixel), intercept, n_saccades. For ``map``, bX is
-        missing and the columns ``x_<knot>`` hold the map (% of the reader mean at each knot).
+        One row per group: intercept, n_saccades, and for ``map`` the columns ``x_<knot>`` and ``y_<knot>`` (the two
+        maps: % of the reader mean at each knot, 0 at the references), for ``joint`` and ``by_type`` the columns bX
+        and bY (% of the reader mean per pixel of horizontal and vertical gaze shift).
     """
     q = steps[np.isfinite(steps["step"])]
     groups = [("pooled", q)] if by is None else list(q.groupby(by, sort=True))
     rows = []
     knots = [float(k) for k in knots]
+    knots_y = [float(k) for k in knots_y]
     for gname, d in groups:
         if method == "joint":
             d = d[d["type"].isin(JOINT_TYPES)]
@@ -187,26 +240,38 @@ def step_slopes(steps: pd.DataFrame, by: Optional[str] = "eye", method: str = "j
             rows.append({"group": gname, "intercept": np.nan, "bX": bx, "bY": by_, "n_saccades": len(wl) + len(vt)})
         elif method == "map":
             d = d[d["type"] != "other"]
-            if len(d) < len(knots) + 2:
+            # knots with too few fixations around them (e.g. screen edges no text reaches) are left out of the fit;
+            # the map is then flat beyond the outermost knots that are fitted and linear between fitted knots
+            ux = _supported(d["x0"], d["x1"], knots, reference, min_knot_saccades)
+            uy = _supported(d["y0"], d["y1"], knots_y, reference_y, min_knot_saccades)
+            if len(ux) < 2 or len(d) < len(ux) + len(uy) + 2:
                 continue
-            keep = [i for i, k in enumerate(knots) if k != float(reference)]
-            H = hat_basis(d["x1"], knots) - hat_basis(d["x0"], knots)
-            X = np.column_stack([np.ones(len(d)), H[:, keep], d["dy"].to_numpy(float)])
-            c = _ols(X, d["step"].to_numpy(float))
-            row = {"group": gname, "intercept": c[0], "bX": np.nan, "bY": c[-1], "n_saccades": len(d)}
-            beta = dict(zip([knots[i] for i in keep], c[1:-1]))
-            beta[float(reference)] = 0.0
-            row.update({f"x_{k:g}": beta[k] for k in knots})
+            kx = [i for i, k in enumerate(ux) if k != float(reference)]
+            ky = [i for i, k in enumerate(uy) if k != float(reference_y)]
+            Hx = hat_basis(d["x1"], ux) - hat_basis(d["x0"], ux)
+            Hy = hat_basis(d["y1"], uy) - hat_basis(d["y0"], uy)
+            c = _ols(np.column_stack([np.ones(len(d)), Hx[:, kx], Hy[:, ky]]), d["step"].to_numpy(float))
+            row = {"group": gname, "intercept": c[0], "n_saccades": len(d)}
+            bx = dict(zip([ux[i] for i in kx], c[1:1 + len(kx)]))
+            bx[float(reference)] = 0.0
+            row.update({f"x_{k:g}": v for k, v in zip(knots, np.interp(knots, ux, [bx[k] for k in ux]))})
+            byv = dict(zip([uy[i] for i in ky], c[1 + len(kx):]))
+            byv[float(reference_y)] = 0.0
+            if len(uy) > 1:
+                row.update({f"y_{k:g}": v for k, v in zip(knots_y, np.interp(knots_y, uy, [byv[k] for k in uy]))})
+            else:
+                row.update({f"y_{k:g}": 0.0 for k in knots_y})
             rows.append(row)
         else:
-            raise ValueError("step_slopes: method must be 'joint', 'by_type' or 'map'")
+            raise ValueError("step_slopes: method must be 'map', 'joint' or 'by_type'")
     if not rows:
         raise ValueError(f"step_slopes: too few saccades for method {method!r}"
                          + (" (no vertical saccades)" if method == "by_type" else ""))
     out = pd.DataFrame(rows).set_index("group")
     out.attrs = {"by": by, "method": method, "unit": "% of reader mean per px"}
     if method == "map":
-        out.attrs.update(knots=knots, reference=float(reference))
+        out.attrs.update(knots=knots, reference=float(reference), knots_y=knots_y, reference_y=float(reference_y))
+        out.attrs["unit"] = "% of reader mean"
     return out
 
 
@@ -411,8 +476,8 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
         Binned trace (:func:`bin`). Gaze correction must run before :func:`baseline`, so that the baseline is corrected
         for its own gaze position; a warning is raised if the bins already carry a baseline.
     slopes : DataFrame or Series
-        For ``method="steps"``: :func:`step_slopes` output (% of reader mean per pixel, one row per eye or reader, or
-        a horizontal map). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel). For
+        For ``method="steps"``: :func:`step_slopes` output (a map across the screen, or % of reader mean
+        per pixel; one row per eye or reader). For ``method="regression"``: :func:`regression_slopes` output (pupil units per pixel). For
         ``method="hybrid"``: :func:`geometric_scale` output (scale factor k per eye or reader).
     method : {None, "steps", "regression", "geometric", "hybrid"}
         None (paper's primary estimate) returns the bins unchanged. "geometric" divides pupil area by cos theta of the
@@ -462,17 +527,21 @@ def correct_gaze(bins: pd.DataFrame, slopes=None, method: Optional[str] = None, 
         sl, key = group_key(slopes)
         rm = means if means is not None else _reader_means(bins)
         rmv = out["reader"].map(rm).to_numpy(float)
-        byy = key.map(sl["bY"]).to_numpy(float)
         knots = (slopes.attrs or {}).get("knots")
         if (slopes.attrs or {}).get("method") == "map" and knots:
             art = np.full(len(out), np.nan)
             H = hat_basis(xf, knots)
             cols = [f"x_{float(k):g}" for k in knots]
+            knots_y = (slopes.attrs or {}).get("knots_y")
+            Hy = hat_basis(yf, knots_y) if knots_y else None
+            cols_y = [f"y_{float(k):g}" for k in knots_y] if knots_y else []
             for g, row in sl.iterrows():
                 m = (key == g).to_numpy()
                 if m.any():
-                    art[m] = H[m] @ row[cols].to_numpy(float) + row["bY"] * yf[m]
+                    art[m] = H[m] @ row[cols].to_numpy(float)
+                    art[m] += Hy[m] @ row[cols_y].to_numpy(float) if knots_y else row["bY"] * yf[m]
         else:
+            byy = key.map(sl["bY"]).to_numpy(float)
             bx = key.map(sl["bX"]).to_numpy(float)
             art = bx * xf + byy * yf
         out["pupil_corrected"] = out["pupil"].to_numpy(float) - art * rmv / 100.0

@@ -34,7 +34,7 @@ CONTROLS_COS_THETA = tuple("cos_theta" if c == "eccentricity" else c for c in CO
 #: ``cos_theta``) need a measured layout (``gaze.layout`` in the config) and are left out without one. Keys are the
 #: output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
 #: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
-#: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "joint", "by_type" or "map",
+#: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "map", "joint" or "by_type",
 #: "geometric" with ``layout``, by default the ``gaze.layout`` setting of the config, or "hybrid" with ``by`` and
 #: ``layout``), ``controls`` (and ``optional_controls``, used when present), ``min_baseline_pct``,
 #: ``min_valid_trial``, ``subset``, ``samples`` (sample-level settings, e.g. ``{"blinks": {"pad_ms": 50}}``), and the
@@ -54,10 +54,8 @@ PAPER_OPTIONS = {
     "control_predictors": dict(label="Control predictors", controls=list(CONTROLS),
                                optional_controls=list(OPTIONAL_CONTROLS), section="3.7", table="3"),
     "gaze_regression": dict(label="Regression slopes", gaze=dict(method="regression"), section="3.4", table="3"),
-    "gaze_steps_eye": dict(label="Saccade steps, slopes per eye", gaze=dict(method="steps", by="eye"), section="3.4",
-                           table="3"),
-    "gaze_steps_type": dict(label="Saccade steps, slopes by saccade type (exploratory)",
-                            gaze=dict(method="steps", by="eye", slopes="by_type"), section="3.4", table="3"),
+    "gaze_steps_eye": dict(label="Saccade steps, error map per eye", gaze=dict(method="steps", by="eye", slopes="map"),
+                           section="3.4", table="3"),
     "gaze_geometric": dict(label="Geometric model, measured layout", gaze=dict(method="geometric"), section="3.4",
                            table="3"),
     "fixations_same_trials": dict(label="Samples, same trials as fixation averages", subset="fixations", section="3.1",
@@ -75,12 +73,11 @@ PAPER_OPTIONS = {
                    table="S2"),
     "gaze_regression_time": dict(label="Regression slopes with time", gaze=dict(method="regression", time_terms=True),
                                  section="3.4", table="S2"),
-    "gaze_steps_reader": dict(label="Saccade steps, slopes per reader", gaze=dict(method="steps", by="reader"),
+    "gaze_steps_reader": dict(label="Saccade steps, slopes per reader",
+                              gaze=dict(method="steps", by="reader", slopes="joint"),
                               section="3.4", table="S2"),
-    "gaze_steps_map": dict(label="Saccade steps, horizontal map (exploratory)",
-                           gaze=dict(method="steps", by="eye", slopes="map"), section="3.4", table="S2"),
-    "gaze_hybrid": dict(label="Geometric model scaled to the saccade steps (exploratory)",
-                        gaze=dict(method="hybrid", by="eye"), section="3.4", table="S2"),
+    "gaze_steps_line": dict(label="Saccade steps, one error per pixel",
+                            gaze=dict(method="steps", by="eye", slopes="joint"), section="3.4", table="S2"),
     "control_predictors_cos_theta": dict(label="Control predictors, cos theta in place of eccentricity",
                                          controls=list(CONTROLS_COS_THETA), optional_controls=list(OPTIONAL_CONTROLS),
                                          section="3.7", table="S2"),
@@ -184,7 +181,7 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
             bins = correct_gaze(bins, sl, method="regression")
         elif method == "steps":
             by = g.get("by", "eye")
-            sl = step_slopes(ctx.steps, by=by, method=g.get("slopes", "joint"))
+            sl = step_slopes(ctx.steps, by=by, method=g.get("slopes", "map"))
             bins = correct_gaze(bins, sl, method="steps", by=by, means=means)
         elif method in ("geometric", "hybrid"):
             layout = g.get("layout", ctx.layout)

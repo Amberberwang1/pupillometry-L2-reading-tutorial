@@ -53,7 +53,7 @@ DEFAULTS: Dict = {
     "trials": {"min_valid": 0.5},
     "bin": {"bin_ms": 20, "min_valid": 0.5},
     "levels": {"min_fix_ms": 80},
-    "gaze": {"method": None, "by": "eye", "slopes": "joint", "time_terms": False,
+    "gaze": {"method": None, "by": "eye", "slopes": "map", "time_terms": False,
              "layout": None},              # layout: measured layout for "geometric" and "hybrid" (CSV file; read_layout)
     "baseline": {"window": [0, 200], "method": "subtractive", "scale": "reader_mean"},
     "low_baselines": {"min_pct": 60},
@@ -498,7 +498,7 @@ def analyse(data: PupilData, config=None) -> Result:
     if g.get("method") == "steps":
         if steps is None:
             raise ValueError("gaze.method 'steps' needs fixation reports")
-        slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "joint"))
+        slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "map"))
         bins = correct_gaze(bins, slopes, method="steps", by=g.get("by", "eye"), means=rm)
     elif g.get("method") == "regression":
         slopes = regression_slopes(bins, window=tuple(cfg["baseline"]["window"]), min_baseline_pct=cfg["low_baselines"]["min_pct"] or 0,
@@ -519,7 +519,7 @@ def analyse(data: PupilData, config=None) -> Result:
         raise ValueError("gaze.method must be null, 'steps', 'regression', 'geometric' or 'hybrid'")
     elif steps is not None:
         try:
-            slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "joint"))
+            slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "map"))
         except ValueError as e:
             warnings.warn(f"analyse: no step slopes ({e})")
     bc = cfg["baseline"]

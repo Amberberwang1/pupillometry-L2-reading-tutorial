@@ -78,12 +78,14 @@ STAGES = [
         ("saccade_steps()", [
             "For every saccade between two fixations, measures the step in pupil size from just before it to 20 to "
             "120 ms after landing. Real pupil responses start no earlier than about 220 ms after their cause, so a "
-            "step this fast is an artifact of gaze position. It also records each saccade's size and type: forward, "
-            "regression, return sweep or vertical.",
+            "step this fast is an artifact of gaze position. The slow trend the pupil was already following in the "
+            "100 ms before the saccade is taken out of the step (detrend=100). It also records each saccade's size "
+            "and type: forward, regression, return sweep or vertical.",
         ]),
         ("step_slopes()", [
-            "Turns the steps into the artifact per pixel of gaze shift for each recorded eye, from a regression of "
-            "the steps on horizontal and vertical saccade size.",
+            "Turns the steps into a map of the artifact across the screen for each recorded eye: how much the "
+            "measured pupil changes at each horizontal and each vertical gaze position (100 px sections). "
+            "method=\"joint\" gives one artifact per pixel in both directions instead.",
         ]),
         ("regression_slopes()", [
             "The alternative in Table 2: it estimates the artifact by regressing pupil size on gaze position in the "
