@@ -11,15 +11,17 @@ best fitted there; the three R scripts ship with the package.
 
 What it adds for passage reading:
 
-- **step-based gaze correction**: the artifact per pixel of gaze shift, estimated from the immediate step in pupil size
-  across each saccade (`saccade_steps`, `step_slopes`, `correct_gaze`);
+- **step-based gaze correction (saccade steps)**: a map of the gaze-position artifact across the screen, estimated
+  from the immediate step in pupil size across each saccade (`saccade_steps`, `step_slopes`, `correct_gaze`). The
+  timing logic is that of *Snip & Stitch* (Stribos et al., 2026); saccade steps adapts it to passage reading by
+  pooling all saccades into one map, so errors do not build up over a long stream of saccades;
 - **time-matched windows** with a check of the run-up to the end-of-reading key press (`trial_means`);
 - the **fixation-versus-sample comparison** (`compare_levels`, `fixation_means`);
 - **event responses** locked to blinks, saccades or return sweeps (`event_response`);
 - a **table of the trial measure under each option** for a reduced multiverse analysis (`options_table`,
   `multiverse.R`).
 
-Status: 1.0.0, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
+Status: 1.1.0, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
 reports, 1,000 and 2,000 Hz). Other trackers: see [Other eye trackers](#other-eye-trackers), tested on synthetic
 files only.
 
@@ -35,10 +37,10 @@ files only.
 Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically):
 
 ```
-pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.0.0
+pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.0
 ```
 
-This installs version 1.0.0, the version the paper describes, and needs git. In a downloaded copy of this repository,
+This installs version 1.1.0, the version the paper describes, and needs git. In a downloaded copy of this repository,
 `pip install .` does the same. The R scripts need R with lme4 (trial means) and mgcv (time course). To run pupilread
 from R, see [Using pupilread from R](#using-pupilread-from-r).
 
@@ -140,7 +142,7 @@ pupilread in its own Python environment (this needs Python 3.9 or later; `reticu
 install.packages("reticulate")
 reticulate::virtualenv_create("pupilread")
 reticulate::virtualenv_install("pupilread",
-  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.0.0")
+  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.0")
 ```
 
 Then, in each session:
@@ -175,7 +177,7 @@ the order.
 ## The paper's data
 
 The pupil data of the paper's worked example are attached to the
-[1.0.0 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.0.0) as
+[1.1.0 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.1.0) as
 `pupilread_paper_data.zip` (388 MB; 3.1 GB unzipped): the sample, message and fixation reports of the 45 readers,
 trimmed to the reading period, with the design, exclusion and layout files. In the unzipped folder,
 `pr.run_pipeline("readers", "config.yaml")` followed by the R scripts reproduces the primary estimate and all but three
@@ -235,13 +237,18 @@ line, `pupilread guide baseline`.
 
 ### 3.4 Gaze-position correction
 
-- **`saccade_steps(bins, fixations, after=(20, 120), before=100)`**: for every saccade between two retained fixations,
-  the step in pupil size from the 100 ms before saccade onset to 20 to 120 ms after landing, as % of the reader mean,
-  with the saccade's size and type (forward, regression, return sweep, vertical).
-- **`step_slopes(steps, by="eye", method="joint")`**: the artifact per pixel of gaze shift from a regression of the
-  steps on horizontal and vertical saccade size, per eye; also per reader, `method="by_type"` (horizontal slope from
-  within-line saccades, vertical slope from vertical saccades; exploratory) and `method="map"` (a piecewise-linear map
-  of horizontal position; exploratory).
+- **`saccade_steps(bins, fixations, after=(20, 120), before=100, detrend=100)`**: for every saccade between two
+  retained fixations, the step in pupil size from the 100 ms before saccade onset to 20 to 120 ms after landing, as %
+  of the reader mean, with the saccade's size and type (forward, regression, return sweep, vertical). With `detrend`,
+  the slow trend of the pupil in the last 100 ms before onset is extended across the saccade and taken out of the
+  step (as in *Snip & Stitch + Slope*); `detrend=None` gives the plain difference (version 1.0.0), which is always
+  kept in the column `step_raw`.
+- **`step_slopes(steps, by="eye", method="map")`**: the artifact per eye as the sum of a map across horizontal
+  position and a map across vertical position (each piecewise linear, 100 px sections), fitted to the steps of all forward
+  saccades, regressions, return sweeps and vertical saccades (the paper's correction; the default from version
+  1.1.0). `method="joint"` gives one artifact per pixel, from a regression of the steps on horizontal and vertical
+  saccade size (the default of version 1.0.0); `method="by_type"` takes the horizontal slope from within-line
+  saccades and the vertical slope from vertical saccades (exploratory). Also per reader (`by="reader"`).
 - **`regression_slopes(bins, time_terms=False)`**: slopes from regressing pupil size on gaze position in the reading
   data (pooled, or within trials with time terms), for comparison.
 - **`correct_gaze(bins, slopes, method=None)`**: subtracts the artifact from every 20 ms bin, before
@@ -322,4 +329,4 @@ environment.
 
 ## Citation and licence
 
-Cite the paper and this version of the package (1.0.0); `CITATION.cff` has the details. MIT licence.
+Cite the paper and this version of the package (1.1.0); `CITATION.cff` has the details. MIT licence.
