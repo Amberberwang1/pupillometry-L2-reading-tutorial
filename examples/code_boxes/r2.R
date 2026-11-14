@@ -1,4 +1,4 @@
-# bins: 100 ms bins from run_pipeline() (45 readers); baseline_pct >= 60 only
+# bins: 100 ms bins from Python 5 (45 readers); baseline_pct >= 60 only
 # reader, item, trial: factors (trial: one level per reader and trial)
 # version: ordered factor of contrast (treatment contrasts); contrast 0/1
 # trial_start: TRUE in the first bin of each trial (AR1 restarts there)
