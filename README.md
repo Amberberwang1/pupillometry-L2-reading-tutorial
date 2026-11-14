@@ -15,13 +15,13 @@ What it adds for passage reading:
   from the immediate step in pupil size across each saccade (`saccade_steps`, `step_slopes`, `correct_gaze`). The
   timing logic is that of *Snip & Stitch* (Stribos et al., 2026); saccade steps adapts it to passage reading by
   pooling all saccades into one map, so errors do not build up over a long stream of saccades;
-- **time-matched windows** with a check of the run-up to the end-of-reading key press (`trial_means`);
+- **time-matched windows** that end before the rise ahead of the end-of-reading key press (`trial_means`);
 - the **fixation-versus-sample comparison** (`compare_levels`, `fixation_means`);
 - **event responses** locked to blinks, saccades or return sweeps (`event_response`);
 - a **table of the trial measure under each option** for a reduced multiverse analysis (`options_table`,
   `multiverse.R`).
 
-Status: 1.1.0, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
+Status: 1.1.1, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
 reports, 1,000 and 2,000 Hz). Other trackers: see [Other eye trackers](#other-eye-trackers), tested on synthetic
 files only.
 
@@ -37,10 +37,10 @@ files only.
 Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically):
 
 ```
-pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.0
+pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.1
 ```
 
-This installs version 1.1.0, the version the paper describes, and needs git. In a downloaded copy of this repository,
+This installs version 1.1.1, the version the paper describes, and needs git. In a downloaded copy of this repository,
 `pip install .` does the same. The R scripts need R with lme4 (trial means) and mgcv (time course). To run pupilread
 from R, see [Using pupilread from R](#using-pupilread-from-r).
 
@@ -142,7 +142,7 @@ pupilread in its own Python environment (this needs Python 3.9 or later; `reticu
 install.packages("reticulate")
 reticulate::virtualenv_create("pupilread")
 reticulate::virtualenv_install("pupilread",
-  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.0")
+  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.1")
 ```
 
 Then, in each session:
@@ -177,7 +177,7 @@ the order.
 ## The paper's data
 
 The pupil data of the paper's worked example are attached to the
-[1.1.0 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.1.0) as
+[1.1.1 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.1.1) as
 `pupilread_paper_data.zip` (388 MB; 3.1 GB unzipped): the sample, message and fixation reports of the 45 readers,
 trimmed to the reading period, with the design, exclusion and layout files. In the unzipped folder,
 `pr.run_pipeline("readers", "config.yaml")` followed by the R scripts reproduces the primary estimate and all but three
@@ -213,11 +213,14 @@ line, `pupilread guide baseline`.
 
 ### 3.2 Blinks and artifacts
 
-- **`pad_blinks(samples, pad_ms=100, pupil_range=(100, 10000))`**: pads every tracker blink by 100 ms on each side and
-  sets padded samples and samples outside the plausible range to missing.
+- **`pad_blinks(samples, pad_ms=100, pupil_range=(100, 10000), speed_filter=True)`**: pads every tracker blink by
+  100 ms on each side and sets padded samples and samples outside the plausible range to missing. With
+  `speed_filter=True` (new default in 1.1.1, the paper's choice) it also removes samples where pupil size changes faster
+  than a real pupil can (the dilation-speed filter of `detect_blinks`), which catches brief artifacts the tracker does
+  not mark as blinks.
 - **`detect_blinks(samples, method="speed", mad_k=16, pad_ms=50)`**: pupil-based detection (Kret & Sjak-Shie, 2019)
   for trackers without blink events: implausible values and dilation speeds above the median plus 16 MAD, computed on
-  10 ms means, widened by 50 ms. **`detector_agreement(samples)`** compares it with the tracker's padded blinks
+  10 ms means, widened by 50 ms. **`detector_agreement(samples)`** compares it with the tracker's padded blinks (after `pad_blinks(..., speed_filter=False)`)
   (Supplementary Note S1).
 - **`interpolate(samples, max_gap_ms=1000, kind="linear")`**: fills gaps of up to 1 s (linear, or the cubic spline of
   Mathôt et al., 2018) in a separate column, `pupil_interp`; removal stays the primary choice.
@@ -277,9 +280,11 @@ line, `pupilread guide baseline`.
 
 ### 3.5 Trial length and events
 
-- **`trial_means(bins, window=(500, 20000), cut_before_keypress_ms=0)`**: one value per trial, the mean change in a
-  window with the same start and end in every version (0.5 to 20 s); `window=(500, None)` gives the whole-trial mean,
-  and `cut_before_keypress_ms` leaves out the run-up to the key press.
+- **`trial_means(bins, window=(500, 20000), cut_before_keypress_ms=3000)`**: one value per trial, the mean change in
+  a window with the same start and end in every version (0.5 to 20 s). The window ends 3 s before the end-of-reading
+  key press if that comes first, which keeps the rise before the key press out of the mean (new default in 1.1.1;
+  `cut_before_keypress_ms=0` keeps the whole window). `window=(500, None)` with `cut_before_keypress_ms=0` gives the
+  whole-trial mean.
 - **`event_response(data, event="blink" | "saccade" | "return_sweep" | table, window=None, by="version")`**:
   event-locked responses with local baselines: blinks locked to their offset with a baseline before the padded blink
   (Figure 3D), return sweeps locked to landing (Figure 3C), or any table of event times. Returns reader means and their
@@ -300,10 +305,11 @@ change; Figure 2, with `zoom=(3.0, 3.5)` adding a close-up of half a second of t
   (`add_covariates(bins, fixations, layout="layout.csv")`), `add_covariates` also adds `cos_theta`, the
   foreshortening of the geometric model at each bin's gaze position, which can replace eccentricity
   (`CONTROLS_COS_THETA`).
-- **`export_for_r(trials, bins, folder="for_R", bin_ms=100, window=(500, 20000), reference=None)`** writes:
+- **`export_for_r(trials, bins, folder="for_R", bin_ms=100, window=(500, 20000), cut_before_keypress_ms=3000,
+  reference=None)`** writes:
   - `trials.csv`: one row per trial with reader, item, trial, version, `contrast` (0 = reference version, 1 = the
     other), eye, baseline_pct, `change_0_20s` and any option columns;
-  - `bins.csv`: one row per trial and 100 ms bin from 0.5 to 20 s with reader, item, trial, version, contrast, time
+  - `bins.csv`: one row per trial and 100 ms bin of the same window (0.5 to 20 s, ending 3 s before the key press) with reader, item, trial, version, contrast, time
     (bin centre, s), pupil_change, gaze_x, gaze_y, trial_start and baseline_pct;
   - `options.csv` (for an options table), `pupilread.json` (settings) and copies of the R scripts.
 
@@ -329,4 +335,4 @@ environment.
 
 ## Citation and licence
 
-Cite the paper and this version of the package (1.1.0); `CITATION.cff` has the details. MIT licence.
+Cite the paper and this version of the package (1.1.1); `CITATION.cff` has the details. MIT licence.
