@@ -21,7 +21,7 @@ What it adds for passage reading:
 - a **table of the trial measure under each option** for a reduced multiverse analysis (`options_table`,
   `multiverse.R`).
 
-Status: 1.1.1, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
+Status: 1.1.2, the version the paper describes. Tested on EyeLink 1000 Plus recordings (Data Viewer
 reports, 1,000 and 2,000 Hz). Other trackers: see [Other eye trackers](#other-eye-trackers), tested on synthetic
 files only.
 
@@ -37,10 +37,10 @@ files only.
 Python 3.9 or later, with numpy, pandas, scipy, matplotlib and PyYAML (installed automatically):
 
 ```
-pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.1
+pip install git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.2
 ```
 
-This installs version 1.1.1, the version the paper describes, and needs git. In a downloaded copy of this repository,
+This installs version 1.1.2, the version the paper describes, and needs git. In a downloaded copy of this repository,
 `pip install .` does the same. The R scripts need R with lme4 (trial means) and mgcv (time course). To run pupilread
 from R, see [Using pupilread from R](#using-pupilread-from-r).
 
@@ -142,7 +142,7 @@ pupilread in its own Python environment (this needs Python 3.9 or later; `reticu
 install.packages("reticulate")
 reticulate::virtualenv_create("pupilread")
 reticulate::virtualenv_install("pupilread",
-  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.1")
+  "git+https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial@v1.1.2")
 ```
 
 Then, in each session:
@@ -172,12 +172,13 @@ run in the unzipped `pupilread_paper_data` folder. For several readers, `pr.prep
 reader's samples, `pr.PupilData.concat()` joins them and `pr.analyse()` runs the pooled stages. Gaze correction must
 come before baseline correction, so that the baseline is corrected for its own gaze position: `baseline()` and
 `correct_gaze()` raise a `PipelineOrderWarning` when they are applied the other way round, and `run_pipeline` keeps
-the order.
+the order. Since 1.1.2, `run_pipeline` applies the saccade-step correction by default (`gaze.method: steps`;
+set it to `null` for no correction).
 
 ## The paper's data
 
 The pupil data of the paper's worked example are attached to the
-[1.1.1 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.1.1) as
+[1.1.2 release](https://github.com/Amberberwang1/pupillometry-L2-reading-tutorial/releases/tag/v1.1.2) as
 `pupilread_paper_data.zip` (388 MB; 3.1 GB unzipped): the sample, message and fixation reports of the 45 readers,
 trimmed to the reading period, with the design, exclusion and layout files. In the unzipped folder,
 `pr.run_pipeline("readers", "config.yaml")` followed by the R scripts reproduces the primary estimate and all but three
@@ -293,8 +294,11 @@ line, `pupilread guide baseline`.
 ### 3.6 Checks and figures
 
 `plot_trial` (one trial at four stages: raw samples, blinks padded and removed, 20 ms bins and the baseline-corrected
-change; Figure 2, with `zoom=(3.0, 3.5)` adding a close-up of half a second of the bins), `plot_overlays` (trial overlays), `plot_baselines` (baseline histogram with log counts), `plot_quality`
-(data loss and blink and saccade rates by version), `plot_gaze` (gaze position by version) and `plot_grand_mean`
+change; Figure 2, with `zoom=(3.0, 3.5)` adding a close-up of half a second of the bins), `plot_overlays` (trial overlays with each residual spike marked; Figure 7A), `find_spikes` and `spike_rate` (the
+spikes and the share of trials with one; rule of thumb: no more than about 5%), `plot_baselines` (baseline histogram
+with log counts), `plot_quality` (histograms of data lost per trial by version, with the exclusion threshold; Figure 7B),
+`plot_gaze` (gaze position by version, readers and version means, and, after `correct_gaze()`, pupil size by
+horizontal gaze before and after the correction; Figure 7C) and `plot_grand_mean`
 (Figure 3B: 1 s bins, 95% confidence intervals, points with at least 20 readers). All figures are black and white.
 
 ### 3.7 Control predictors and the hand-over to R
