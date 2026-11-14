@@ -114,7 +114,7 @@ def plot_trial(samples: pd.DataFrame, trial, reader=None, pad_ms: float = 100, b
     if not (s["trial"] == trial).any():
         raise ValueError(f"plot_trial: reader {reader!r} has no trial {trial!r}")
     if "pupil_raw" in s.columns:                      # padded already: start again from the samples as recorded
-        s = s.drop(columns=[c for c in ("pupil", "invalid", "blink_pad", "valid") if c in s.columns])
+        s = s.drop(columns=[c for c in ("pupil", "invalid", "blink_pad", "speed_artifact", "valid") if c in s.columns])
         s = s.rename(columns={"pupil_raw": "pupil"})
     s = s.copy()
     s.attrs = dict(samples.attrs)

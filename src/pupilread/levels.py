@@ -146,21 +146,34 @@ def compare_levels(samples: pd.DataFrame, fixations: pd.DataFrame, min_fix_ms: f
 
 
 def fixation_means(fixations: pd.DataFrame, reader_means: pd.Series, window: Tuple[float, Optional[float]] = (500, 20000),
-                   baseline: Tuple[float, float] = (0, 200), min_fix_ms: float = 80, name: str = "change_fixations") -> pd.DataFrame:
+                   baseline: Tuple[float, float] = (0, 200), min_fix_ms: float = 80, name: str = "change_fixations",
+                   cut_before_keypress_ms: float = 0, durations: Optional[pd.Series] = None) -> pd.DataFrame:
     """Trial means from fixation averages instead of samples (the fixation-level option of Table 3).
 
     The baseline is the mean pupil value of retained fixations that overlap the baseline window, the trial value the
     mean of retained fixations that start within ``window``; the change is expressed as % of the reader mean, as for
-    samples.
+    samples. With ``cut_before_keypress_ms``, fixations that start in the last part of a trial are left out, as in
+    :func:`trial_means`; ``durations`` then gives the trial durations in ms, indexed by (reader, trial).
     """
     F = retained_fixations(fixations, min_fix_ms)
     F = F[np.isfinite(F["pupil"])]
+    last = None
+    if cut_before_keypress_ms:
+        if durations is None:
+            raise ValueError("fixation_means(cut_before_keypress_ms) needs durations (ms, indexed by reader and trial)")
+        d = pd.Series(np.asarray(durations, float), index=pd.MultiIndex.from_arrays(
+            [durations.index.get_level_values(0).astype(str), durations.index.get_level_values(1).astype(str)]))
+        fk = pd.MultiIndex.from_arrays([F["reader"].astype(str), F["trial"].astype(str)])
+        last = d.reindex(fk).to_numpy(float) - cut_before_keypress_ms
     b0, b1 = baseline
     a, z = window
     z = np.inf if z is None else z
     key = ["reader", "trial"]
     fb = F[(F["start"] < b1) & (F["start"] + F["duration"] > b0)].groupby(key)["pupil"].mean().rename("bs")
-    fw = F[(F["start"] >= a) & (F["start"] < z)].groupby(key)["pupil"].mean().rename("m")
+    inw = (F["start"] >= a) & (F["start"] < z)
+    if last is not None:
+        inw &= F["start"].to_numpy(float) < last
+    fw = F[inw].groupby(key)["pupil"].mean().rename("m")
     T = pd.concat([fb, fw], axis=1).reset_index()
     rm = T["reader"].astype(str).map(reader_means.rename(index=str))
     T[name] = 100 * (T["m"] - T["bs"]) / rm

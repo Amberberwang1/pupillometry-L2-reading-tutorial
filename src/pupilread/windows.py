@@ -7,7 +7,7 @@ from typing import Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ._utils import TRIAL_KEY, check_columns, ok_mask, runs, sort_trials, trial_slices
+from ._utils import TRIAL_KEY, check_columns, ok_mask, runs, sort_trials, trial_slices, window_mask
 from .baseline import reader_means as _reader_means
 
 
@@ -26,7 +26,7 @@ def window_name(window, cut_before_keypress_ms: float = 0, prefix: str = "change
     return name
 
 
-def trial_means(bins: pd.DataFrame, window: Tuple[float, Optional[float]] = (500, 20000), cut_before_keypress_ms: float = 0,
+def trial_means(bins: pd.DataFrame, window: Tuple[float, Optional[float]] = (500, 20000), cut_before_keypress_ms: float = 3000,
                 min_valid: Optional[float] = None, column: str = "change", name: Optional[str] = None) -> pd.DataFrame:
     """One value per trial: the mean change in a time window matched across versions (stage 3.5).
 
@@ -36,10 +36,12 @@ def trial_means(bins: pd.DataFrame, window: Tuple[float, Optional[float]] = (500
         Bins after :func:`baseline`.
     window : (start, end)
         Window in ms from text onset (paper: 500 to 20,000 ms, the same in every version). ``end=None`` runs to the end
-        of the trial (the whole-trial mean, which compares different portions of the slow drift when trial length
-        differs between versions).
+        of the trial (with ``cut_before_keypress_ms=0``, the whole-trial mean, which compares different portions of
+        the slow drift when trial length differs between versions).
     cut_before_keypress_ms : float
-        Leave out the last part of each trial, to check the run-up to the end-of-reading key press (Section 3.5).
+        Leave out the last part of each trial, which holds the rise before the end-of-reading key press (Section 3.5).
+        With the paper's 3,000 ms, the window ends at 20 s or 3 s before the key press, whichever comes first; 0 keeps
+        the whole window. The cut does not change the name of the output column.
     min_valid : float, optional
         Share of valid samples a bin needs (default: the ``ok`` column of :func:`bin`).
     column : str
@@ -54,17 +56,8 @@ def trial_means(bins: pd.DataFrame, window: Tuple[float, Optional[float]] = (500
         valid bins in the window or without a baseline are missing.
     """
     check_columns(bins, ["reader", "trial", "time", column], "trial_means (run baseline first)")
-    name = name or window_name(window, cut_before_keypress_ms, "change" if column == "change" else column)
-    bin_ms = float((bins.attrs or {}).get("bin_ms", 20))
-    ok = ok_mask(bins, min_valid)
-    t = bins["time"].to_numpy(float)
-    a, b = window
-    m = ok & (t >= a)
-    if b is not None:
-        m &= t < b
-    if cut_before_keypress_ms:
-        check_columns(bins, ["duration"], "trial_means(cut_before_keypress_ms)")
-        m &= (t + bin_ms) <= (bins["duration"].to_numpy(float) - cut_before_keypress_ms)
+    name = name or window_name(window, prefix="change" if column == "change" else column)
+    m = ok_mask(bins, min_valid) & window_mask(bins, window, cut_before_keypress_ms, "trial_means")
     sel = bins.loc[m, TRIAL_KEY + [column]]
     v = sel.groupby(TRIAL_KEY, sort=False)[column].mean().rename(name).reset_index()
     info = [c for c in ("reader", "item", "trial", "version", "eye", "baseline_pct") if c in bins.columns]

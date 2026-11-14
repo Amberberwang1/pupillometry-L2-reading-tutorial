@@ -27,7 +27,7 @@ from .gaze import correct_gaze, geometric_scale, regression_slopes, saccade_step
 from .io import read_csv, read_eyelink, read_fixations, read_messages
 from .levels import bin as bin_samples
 from .levels import compare_levels
-from .windows import Events, _summarise, event_response, trial_means
+from .windows import Events, _summarise, event_response, trial_means, window_name
 
 #: The paper's primary choices; every setting can be changed in the config (YAML file or dict).
 DEFAULTS: Dict = {
@@ -48,7 +48,7 @@ DEFAULTS: Dict = {
         "drop_duplicates": True,        # drop sample rows that repeat the trial and time stamp of an earlier row
     },
     "display": {"width": 1024, "height": 768, "px_per_degree": None},
-    "blinks": {"detect": False, "mad_k": 16, "pad_ms": 100, "pupil_range": [100, 10000]},
+    "blinks": {"detect": False, "speed_filter": True, "mad_k": 16, "pad_ms": 100, "pupil_range": [100, 10000]},
     "interpolate": {"max_gap_ms": 1000, "kind": "linear"},
     "trials": {"min_valid": 0.5},
     "bin": {"bin_ms": 20, "min_valid": 0.5},
@@ -57,7 +57,7 @@ DEFAULTS: Dict = {
              "layout": None},              # layout: measured layout for "geometric" and "hybrid" (CSV file; read_layout)
     "baseline": {"window": [0, 200], "method": "subtractive", "scale": "reader_mean"},
     "low_baselines": {"min_pct": 60},
-    "trial_means": {"window": [500, 20000], "cut_before_keypress_ms": 0},
+    "trial_means": {"window": [500, 20000], "cut_before_keypress_ms": 3000},
     "events": {"blink": {"window": [-200, 2000], "baseline_ms": 100, "kept_only": True, "lag_ms": 1},
                "return_sweep": {"window": [-300, 1000]}},
     "options": "paper",                 # "paper" (Tables 3 and S2), None, or a dict of options (see options_table)
@@ -231,7 +231,8 @@ def _clean_and_bin(samples: pd.DataFrame, cfg: dict, exclude=None):
     bl = cfg["blinks"]
     if bl.get("detect"):
         s = detect_blinks(s, mad_k=bl["mad_k"], pupil_range=tuple(bl["pupil_range"]))
-    s = pad_blinks(s, pad_ms=bl["pad_ms"], pupil_range=tuple(bl["pupil_range"]))
+    s = pad_blinks(s, pad_ms=bl["pad_ms"], pupil_range=tuple(bl["pupil_range"]),
+                   speed_filter=bool(bl.get("speed_filter", True)) and not bl.get("detect"), mad_k=bl["mad_k"])
     ip = cfg.get("interpolate")
     if ip:
         s = interpolate(s, max_gap_ms=ip["max_gap_ms"], kind=ip["kind"])
@@ -526,8 +527,9 @@ def analyse(data: PupilData, config=None) -> Result:
     b = baseline(bins, window=tuple(bc["window"]), method=bc["method"], scale=bc["scale"], means=rm_base)
     lowb = low_baselines(b, min_pct=cfg["low_baselines"]["min_pct"])
     tm = cfg["trial_means"]
-    trials = trial_means(b, window=tuple(tm["window"]) if tm["window"][1] is not None else (tm["window"][0], None),
-                         cut_before_keypress_ms=tm["cut_before_keypress_ms"])
+    tw = tuple(tm["window"]) if tm["window"][1] is not None else (tm["window"][0], None)
+    trials = trial_means(b, window=tw, cut_before_keypress_ms=tm["cut_before_keypress_ms"] or 0,
+                         name=window_name(tw))      # the primary measure keeps its name (change_0_20s) with the cut
     info = [c for c in ("pct_valid", "duration_s", "blink_rate", "saccade_rate") if c in data.trials.columns]
     L = data.trials[TRIAL_KEY + info].copy()
     trials = trials.assign(_r=trials["reader"].astype(str), _t=trials["trial"].astype(str)).merge(

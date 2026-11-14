@@ -7,7 +7,7 @@ One function per decision, with the paper's primary choice as the default::
     samples = pr.pad_blinks(samples, pad_ms=100)
     bins = pr.bin(samples, bin_ms=20)
     bins = pr.baseline(bins, window=(0, 200), method="subtractive")
-    trials = pr.trial_means(bins, window=(500, 20000))
+    trials = pr.trial_means(bins, window=(500, 20000), cut_before_keypress_ms=3000)
     pr.export_for_r(trials, bins, folder="for_R")
 
 or the whole sequence with :func:`run_pipeline`. ``pr.guide()`` explains the functions in plain language.

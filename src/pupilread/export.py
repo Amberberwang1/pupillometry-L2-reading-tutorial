@@ -14,7 +14,7 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._utils import check_columns, ok_mask
+from ._utils import check_columns, ok_mask, window_mask
 from ._version import __version__
 
 R_SCRIPTS = ("lmm.R", "gamm.R", "multiverse.R")
@@ -41,16 +41,16 @@ def _contrast(version: pd.Series, reference: Optional[str]):
 
 
 def gamm_bins(bins: pd.DataFrame, bin_ms: float = 100, window: Tuple[float, float] = (500, 20000),
-              column: str = "change") -> pd.DataFrame:
+              column: str = "change", cut_before_keypress_ms: float = 3000) -> pd.DataFrame:
     """Average the 20 ms bins of every trial in ``bin_ms`` bins within ``window`` (the trace for gamm.R).
 
     Only bins with enough valid samples enter (the ``ok`` column of :func:`bin`); pupil change and gaze position are
-    their means. ``time`` is the bin centre in seconds from text onset.
+    their means. ``time`` is the bin centre in seconds from text onset. ``cut_before_keypress_ms`` leaves out the last
+    part of each trial, as in :func:`trial_means`.
     """
     check_columns(bins, ["reader", "trial", "time", column], "gamm_bins (run baseline first)")
     ok = ok_mask(bins) & np.isfinite(bins[column].to_numpy(float))
-    t = bins["time"].to_numpy(float)
-    m = ok & (t >= window[0]) & (t < window[1])
+    m = ok & window_mask(bins, window, cut_before_keypress_ms, "gamm_bins")
     keys = [c for c in ("reader", "item", "trial", "version", "eye") if c in bins.columns]
     extra = [c for c in ("baseline_pct",) if c in bins.columns]
     W = bins.loc[m, keys + extra + ["time", column, "gaze_x", "gaze_y"]].copy()
@@ -70,7 +70,8 @@ def gamm_bins(bins: pd.DataFrame, bin_ms: float = 100, window: Tuple[float, floa
 
 def export_for_r(trials: pd.DataFrame, bins: pd.DataFrame, folder: str = "for_R", bin_ms: float = 100,
                  window: Tuple[float, float] = (500, 20000), reference: Optional[str] = None, scripts: bool = True,
-                 options: Optional[pd.DataFrame] = None, config=None) -> dict:
+                 options: Optional[pd.DataFrame] = None, config=None,
+                 cut_before_keypress_ms: Optional[float] = None) -> dict:
     """Write the files for the models in R (stage 3.7): trials.csv, bins.csv and, for options tables, options.csv.
 
     Parameters
@@ -91,6 +92,10 @@ def export_for_r(trials: pd.DataFrame, bins: pd.DataFrame, folder: str = "for_R"
         "non-simplified" in the paper); the other version is coded 1.
     scripts : bool
         Copy lmm.R, gamm.R and multiverse.R into ``folder``, so that they run there without editing.
+    cut_before_keypress_ms : float, optional
+        Leave the last part of each trial out of the trace, as in :func:`trial_means`. Default: the
+        ``trial_means.cut_before_keypress_ms`` setting of ``config``, or the paper's 3,000 ms without a config. Use
+        the value used for ``trials``, so that both models analyse the same part of each trial.
     options : DataFrame, optional
         Model table for multiverse.R (default: ``trials.attrs["options"]`` from :func:`options_table`).
 
@@ -117,7 +122,10 @@ def export_for_r(trials: pd.DataFrame, bins: pd.DataFrame, folder: str = "for_R"
     p = os.path.join(folder, "trials.csv")
     T.to_csv(p, index=False)
     files["trials.csv"] = p
-    G = gamm_bins(bins, bin_ms=bin_ms, window=window)
+    if cut_before_keypress_ms is None:
+        cut_before_keypress_ms = ((dict(config).get("trial_means") or {}).get("cut_before_keypress_ms", 3000)
+                                  if config is not None else 3000) or 0
+    G = gamm_bins(bins, bin_ms=bin_ms, window=window, cut_before_keypress_ms=cut_before_keypress_ms)
     G["contrast"], _, _ = _contrast(G["version"], ref)
     G = G[[c for c in ("reader", "item", "trial", "version", "contrast", "eye") if c in G.columns]
           + [c for c in G.columns if c not in ("reader", "item", "trial", "version", "contrast", "eye")]]
@@ -145,6 +153,7 @@ def export_for_r(trials: pd.DataFrame, bins: pd.DataFrame, folder: str = "for_R"
             "min_baseline_pct": min_pct,
             "trials_analysed": int((T["baseline_pct"] >= (min_pct if min_pct is not None else -np.inf)).sum()),
             "bins": int(len(G)), "bin_ms": bin_ms, "window_ms": list(window),
+            "cut_before_keypress_ms": cut_before_keypress_ms,
             "bins_attrs": {k: (list(v) if isinstance(v, tuple) else v) for k, v in (bins.attrs or {}).items()
                            if isinstance(v, (int, float, str, list, tuple, dict, type(None)))}}
     if config is not None:

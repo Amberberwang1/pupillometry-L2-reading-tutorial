@@ -13,8 +13,14 @@ from ._utils import (TRIAL_KEY, check_columns, copy_attrs, dilate, ms_to_samples
                      sort_trials, trial_slices)
 
 
-def pad_blinks(samples: pd.DataFrame, pad_ms: float = 100, pupil_range: Tuple[float, float] = (100, 10000)) -> pd.DataFrame:
+def pad_blinks(samples: pd.DataFrame, pad_ms: float = 100, pupil_range: Tuple[float, float] = (100, 10000),
+               speed_filter: bool = True, mad_k: float = 16, speed_pad_ms: float = 50) -> pd.DataFrame:
     """Pad every blink and set padded and invalid samples to missing (stage 3.2; Python 2 of the paper).
+
+    With ``speed_filter`` (the paper's choice), samples where pupil size changes faster than a real pupil can are
+    also removed: the dilation-speed filter of Kret and Sjak-Shie (2019), as in :func:`detect_blinks`, applied on top
+    of the tracker's blinks. It catches brief artifacts the tracker does not mark as blinks, such as a half-closed
+    eyelid, which otherwise show as downward spikes in :func:`plot_overlays`.
 
     Parameters
     ----------
@@ -24,12 +30,18 @@ def pad_blinks(samples: pd.DataFrame, pad_ms: float = 100, pupil_range: Tuple[fl
         Padding on each side of every blink, in ms (paper: 100 ms; 50 to 100 ms are common).
     pupil_range : (low, high)
         Pupil values outside this range, like missing values, count as invalid (paper: 100 to 10,000 area units).
+    speed_filter : bool
+        Also remove speed outliers (paper: True). False keeps only the tracker's blinks and invalid values.
+    mad_k, speed_pad_ms : float
+        Settings of the speed filter (:func:`detect_blinks`): the threshold in median absolute deviations above the
+        trial's median speed (paper: 16) and the widening of each outlier on each side (paper: 50 ms).
 
     Returns
     -------
     DataFrame
-        The samples with ``pupil`` set to NaN where invalid or within a padded blink, and new columns ``pupil_raw``
-        (as recorded), ``invalid``, ``blink_pad`` (padded blink, blink included) and ``valid``.
+        The samples with ``pupil`` set to NaN where invalid, within a padded blink or a speed outlier, and new columns
+        ``pupil_raw`` (as recorded), ``invalid`` (missing, out of range or speed outlier outside the padded blinks),
+        ``blink_pad`` (padded blink, blink included), ``speed_artifact`` (speed outlier) and ``valid``.
     """
     check_columns(samples, ["reader", "trial", "time", "pupil", "in_blink"], "pad_blinks")
     s = sort_trials(samples)
@@ -42,14 +54,23 @@ def pad_blinks(samples: pd.DataFrame, pad_ms: float = 100, pupil_range: Tuple[fl
     pad = np.zeros(len(s), bool)
     for a, b in trial_slices(s):
         pad[a:b] = dilate(blink[a:b], k)
-    valid = ~invalid & ~pad
+    speed = np.zeros(len(s), bool)
+    if speed_filter:
+        d = detect_blinks(s.assign(pupil_raw=raw), mad_k=mad_k, pad_ms=speed_pad_ms, pupil_range=tuple(pupil_range),
+                          column="_speed_flag")
+        if not np.array_equal(d["time"].to_numpy(), s["time"].to_numpy()):
+            raise RuntimeError("pad_blinks: speed filter returned samples in another order")
+        speed = d["speed_outlier"].to_numpy(bool)
+    valid = ~invalid & ~pad & ~speed
     out = s.copy()
     out["pupil_raw"] = raw
     out["pupil"] = np.where(valid, raw, np.nan)
-    out["invalid"] = invalid
+    out["invalid"] = invalid | (speed & ~pad)
     out["blink_pad"] = pad
+    out["speed_artifact"] = speed
     out["valid"] = valid
-    return copy_attrs(s, out, pad_ms=pad_ms, pupil_range=tuple(pupil_range), hz=hz)
+    return copy_attrs(s, out, pad_ms=pad_ms, pupil_range=tuple(pupil_range), hz=hz, speed_filter=bool(speed_filter),
+                      mad_k=mad_k if speed_filter else None)
 
 
 def detect_blinks(samples: pd.DataFrame, method: str = "speed", mad_k: float = 16, pad_ms: float = 50,
@@ -113,7 +134,7 @@ def detect_blinks(samples: pd.DataFrame, method: str = "speed", mad_k: float = 1
 def detector_agreement(samples: pd.DataFrame, mad_k: float = 16, pad_ms: float = 50, smooth_ms: float = 10) -> pd.DataFrame:
     """Per trial, how the pupil-based detector (:func:`detect_blinks`) agrees with the tracker's padded blinks.
 
-    ``samples`` must have passed :func:`pad_blinks` (tracker blinks padded). Returns one row per trial with
+    ``samples`` must have passed :func:`pad_blinks` with ``speed_filter=False`` (tracker blinks padded). Returns one row per trial with
     pct_padded_caught (share of padded-blink samples that the detector flags), pct_outside (detector-flagged samples
     outside padded blinks, as % of all samples) and pct_speed (speed outliers, % of all samples): Supplementary Note S1.
     """

@@ -45,11 +45,15 @@ STAGES = [
             "For eye trackers that do not mark blinks. It flags samples where pupil size is missing, implausible or "
             "changing faster than the trial's median speed plus 16 median absolute deviations (the dilation-speed "
             "filter of Kret & Sjak-Shie, 2019).",
-            "The paper did not need it, because EyeLink marks blinks; Supplementary Note S1 compares the two.",
+            "With EyeLink, which marks blinks, the paper uses its speed filter on top of the tracker's blinks "
+            "(pad_blinks(), speed_filter=True).",
         ]),
         ("pad_blinks()", [
             "Widens every blink by 100 ms on each side and sets those samples to missing, because pupil size is "
             "distorted just before and after a blink. Values outside 100 to 10,000 area units also count as invalid.",
+            "It also removes samples where pupil size changes faster than a real pupil can (the speed filter of "
+            "detect_blinks()), which catches brief artifacts the tracker does not mark as blinks. "
+            "speed_filter=False turns this off.",
         ]),
         ("interpolate()", [
             "An option. It fills gaps of up to 1 s from the valid samples on either side, in a separate column, so "
@@ -105,8 +109,9 @@ STAGES = [
             "Gives one value per trial: the mean change from 0.5 to 20 s. The window is the same in both versions, "
             "so the shorter simplified trials are not compared over a different part of the slow decline in pupil "
             "size.",
-            "window=(500, None) gives the whole-trial mean instead, and cut_before_keypress_ms leaves out the run-up "
-            "to the key press.",
+            "cut_before_keypress_ms=3000 ends the window 3 s before the key press, which keeps the rise before it "
+            "out of the mean; 0 keeps the whole window.",
+            "window=(500, None) with cut_before_keypress_ms=0 gives the whole-trial mean instead.",
         ]),
         ("event_response()", [
             "Shows the pupil around one type of event: blinks (Figure 3D), saccades or return sweeps (Figure 3C). It "
@@ -150,7 +155,7 @@ STAGES = [
         ]),
         ("export_for_r()", [
             "Writes the files for R: trials.csv (one row per trial; contrast = 0 for the reference version, "
-            "non-simplified in the paper, and 1 for the other), bins.csv (100 ms bins from 0.5 to 20 s, for the "
+            "non-simplified in the paper, and 1 for the other), bins.csv (100 ms bins of the same window, for the "
             "time-course model) and copies of the R scripts.",
         ]),
         ("lmm.R", [
@@ -158,7 +163,7 @@ STAGES = [
             "change_0_20s ~ contrast + (1 | reader) + (0 + contrast | reader) + (1 | item)",
             "In words: the version difference, with a level and a version difference for each reader and a level for "
             "each text.",
-            "In the paper, this gives the primary estimate, 1.37 [-0.20, 2.94], p = .087.",
+            "In the paper, this gives the primary estimate, 1.36 [-0.20, 2.93], p = .088.",
         ]),
         ("gamm.R", [
             "R 2: the time-course models (mgcv). They estimate the version difference over the first 20 s with a "

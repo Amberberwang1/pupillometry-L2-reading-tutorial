@@ -13,7 +13,7 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._utils import TRIAL_KEY, check_columns, ok_mask
+from ._utils import TRIAL_KEY, check_columns, ok_mask, window_mask
 from .gaze import foreshortening
 from .levels import retained_fixations
 
@@ -61,7 +61,7 @@ def add_covariates(bins: pd.DataFrame, fixations: Optional[pd.DataFrame] = None,
 
 def control_predictors(bins: pd.DataFrame, covariates: Sequence[str], window: Tuple[float, float] = (500, 20000),
                        min_baseline_pct: Optional[float] = 60, column: str = "change", name: str = "change_adjusted",
-                       complete_cases: Optional[Sequence[str]] = None):
+                       complete_cases: Optional[Sequence[str]] = None, cut_before_keypress_ms: float = 3000):
     """Trial means adjusted for control predictors estimated within trials (Section 3.7).
 
     Parameters
@@ -73,6 +73,8 @@ def control_predictors(bins: pd.DataFrame, covariates: Sequence[str], window: Tu
         same bins is returned too.
     window : (start, end)
         Window in ms from text onset.
+    cut_before_keypress_ms : float
+        Leave out the last part of each trial, as in :func:`trial_means`.
     min_baseline_pct : float or None
         Analysed trials only (baseline at least this % of the reader mean), as in the paper.
     complete_cases : list of str, optional
@@ -88,9 +90,7 @@ def control_predictors(bins: pd.DataFrame, covariates: Sequence[str], window: Tu
     req = list(dict.fromkeys(list(complete_cases or covariates) + [c for c in ("gaze_x", "gaze_y") if c in bins.columns]))
     need = list(dict.fromkeys(list(covariates) + req + [column, "baseline_pct"]))
     check_columns(bins, need, "control_predictors")
-    ok = ok_mask(bins)
-    t = bins["time"].to_numpy(float)
-    m = ok & (t >= window[0]) & (t < window[1])
+    m = ok_mask(bins) & window_mask(bins, window, cut_before_keypress_ms, "control_predictors")
     if min_baseline_pct is not None:
         m &= bins["baseline_pct"].to_numpy(float) >= min_baseline_pct
     W = bins.loc[m, TRIAL_KEY + need].dropna(subset=list(dict.fromkeys(req + list(covariates) + [column])))

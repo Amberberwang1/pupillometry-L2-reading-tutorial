@@ -126,3 +126,19 @@ def ok_mask(bins: pd.DataFrame, min_valid=None) -> np.ndarray:
     if spb is None:
         raise ValueError("bins.attrs['samples_per_bin'] is missing; create bins with pupilread.bin()")
     return (bins["n_valid"].to_numpy(float) >= min_valid * spb) & np.isfinite(bins["pupil"].to_numpy(float))
+
+
+def window_mask(bins, window, cut_before_keypress_ms: float = 0, where: str = "window"):
+    """Bins inside ``window`` (ms from text onset; an end of None runs to the end of the trial) that end at least
+    ``cut_before_keypress_ms`` before the end-of-reading key press of their trial (Section 3.5)."""
+    import numpy as np
+    t = bins["time"].to_numpy(float)
+    a, b = window
+    m = t >= a
+    if b is not None:
+        m &= t < b
+    if cut_before_keypress_ms:
+        check_columns(bins, ["duration"], f"{where}(cut_before_keypress_ms)")
+        bin_ms = float((bins.attrs or {}).get("bin_ms", 20))
+        m &= (t + bin_ms) <= (bins["duration"].to_numpy(float) - cut_before_keypress_ms)
+    return m

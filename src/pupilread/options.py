@@ -33,7 +33,7 @@ CONTROLS_COS_THETA = tuple("cos_theta" if c == "eccentricity" else c for c in CO
 #: ``gamm.R``). The options that use the geometric model (gaze methods "geometric" and "hybrid", the control
 #: ``cos_theta``) need a measured layout (``gaze.layout`` in the config) and are left out without one. Keys are the
 #: output column names. Settings: ``baseline`` (arguments of :func:`baseline`), ``window`` and
-#: ``cut_before_keypress_ms`` (:func:`trial_means`), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
+#: ``cut_before_keypress_ms`` (:func:`trial_means`; default: the ``trial_means`` setting of the config), ``interpolated``, ``diameter``, ``level="fixations"``, ``gaze``
 #: (``method`` "regression" with ``time_terms``, "steps" with ``by`` and ``slopes`` = "map", "joint" or "by_type",
 #: "geometric" with ``layout``, by default the ``gaze.layout`` setting of the config, or "hybrid" with ``by`` and
 #: ``layout``), ``controls`` (and ``optional_controls``, used when present), ``min_baseline_pct``,
@@ -49,7 +49,7 @@ PAPER_OPTIONS = {
     "baseline_covariate": dict(label="Baseline as covariate", baseline=dict(method="none"), covariates=["baseline_z"],
                                section="3.3", table="3"),
     "diameter": dict(label="Diameter scale", diameter=True, section="3.3", table="3"),
-    "whole_trial": dict(label="Whole trial", window=(500, None), section="3.5", table="3"),
+    "whole_trial": dict(label="Whole trial", window=(500, None), cut_before_keypress_ms=0, section="3.5", table="3"),
     "random_intercepts": dict(label="Random intercepts only", random="intercepts", section="3.7", table="3"),
     "control_predictors": dict(label="Control predictors", controls=list(CONTROLS),
                                optional_controls=list(OPTIONAL_CONTROLS), section="3.7", table="3"),
@@ -66,9 +66,9 @@ PAPER_OPTIONS = {
     "left_eye": dict(label="Left-eye readers", subset={"eye": "left"}, section="3.4", table="S2"),
     "right_eye": dict(label="Right-eye readers", subset={"eye": "right"}, section="3.4", table="S2"),
     "whole_trial_covariates": dict(label="Whole trial + duration, blink and saccade rates", window=(500, None),
+                                   cut_before_keypress_ms=0,
                                    covariates=["duration_z", "blink_z", "saccade_z"], section="3.5", table="S2"),
-    "cut_1s": dict(label="Last 1 s before the key press removed", cut_before_keypress_ms=1000, section="3.5",
-                   table="S2"),
+    "no_cut": dict(label="Last 3 s before the key press kept", cut_before_keypress_ms=0, section="3.5", table="S2"),
     "cut_2s": dict(label="Last 2 s before the key press removed", cut_before_keypress_ms=2000, section="3.5",
                    table="S2"),
     "gaze_regression_time": dict(label="Regression slopes with time", gaze=dict(method="regression", time_terms=True),
@@ -113,7 +113,7 @@ def _z(v: pd.Series, ref: Optional[pd.Series] = None) -> pd.Series:
 class _Context:
     """Shared intermediate results (reader means, saccade steps) for the options of one table."""
 
-    def __init__(self, data, base_window, window, min_pct, steps, display=None, layout=None):
+    def __init__(self, data, base_window, window, min_pct, steps, display=None, layout=None, cut=0):
         self.data = data
         self.display = dict(display or {})
         self.layout = layout
@@ -121,6 +121,7 @@ class _Context:
         self.means = reader_means(self.bins)
         self.base_window = tuple(base_window)
         self.window = tuple(window)
+        self.cut = cut or 0
         self.min_pct = min_pct
         self._steps = steps
         self._fix = None
@@ -162,11 +163,14 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
     bins = ctx.bins_for(name, o)
     means = ctx.means if bins is ctx.bins else reader_means(bins)
     window = tuple(o.get("window", ctx.window))
+    cut = o.get("cut_before_keypress_ms", ctx.cut)
     bkw = dict(window=ctx.base_window, method="subtractive", scale="reader_mean")
     bkw.update(o.get("baseline", {}))
     if o.get("level") == "fixations":
         bw = tuple(bkw["window"])
-        v = fixation_means(ctx.fixations, means, window=window, baseline=bw, name=name)
+        dur = bins.drop_duplicates(TRIAL_KEY).set_index(TRIAL_KEY)["duration"] if cut else None
+        v = fixation_means(ctx.fixations, means, window=window, baseline=bw, name=name, cut_before_keypress_ms=cut,
+                           durations=dur)
         return v.set_index(TRIAL_KEY)[name]
     column = None
     if o.get("diameter"):
@@ -220,9 +224,9 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
         if not cov:
             raise ValueError(f"options_table: option {name!r} has no control predictors in the bins (see add_covariates)")
         adj, _ = control_predictors(b, cov, window=window, min_baseline_pct=ctx.min_pct, name=name,
-                                    complete_cases=o.get("complete_cases"))
+                                    complete_cases=o.get("complete_cases"), cut_before_keypress_ms=cut)
         return adj.set_index(TRIAL_KEY)[name]
-    t = trial_means(b, window=window, cut_before_keypress_ms=o.get("cut_before_keypress_ms", 0), name=name)
+    t = trial_means(b, window=window, cut_before_keypress_ms=cut, name=name)
     return t.set_index(TRIAL_KEY)[name]
 
 
@@ -282,8 +286,9 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     base_window = tuple(cfg["baseline"]["window"])
     window = tuple(cfg["trial_means"]["window"])
     min_pct = cfg["low_baselines"]["min_pct"]
+    cut = cfg["trial_means"].get("cut_before_keypress_ms", 0) or 0
     ctx = _Context(data, base_window, window, min_pct, steps, display=cfg.get("display"),
-                   layout=(cfg.get("gaze") or {}).get("layout"))
+                   layout=(cfg.get("gaze") or {}).get("layout"), cut=cut)
     b0 = baseline(ctx.bins, window=base_window, means=ctx.means)
     T = low_baselines(b0, min_pct=min_pct if min_pct is not None else -np.inf)
     T = T[np.isfinite(T["baseline_pct"])].drop(columns=["low", "reason"]).reset_index(drop=True)
@@ -337,5 +342,5 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
         T[name] = np.where(keep, v, np.nan)
     spec = options_spec({k: v for k, v in options.items() if k in T.columns})
     T.attrs = {"options": spec.to_dict("records"), "min_pct": min_pct, "baseline_window": base_window,
-               "window": window}
+               "window": window, "cut_before_keypress_ms": cut}
     return T
