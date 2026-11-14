@@ -6,6 +6,7 @@ data: {format: eyelink, readers: null, reader_pattern: null, design: null, exclu
 display: {width: 1024, height: 768, px_per_degree: null}
 blinks:
   detect: false
+  speed_filter: true
   mad_k: 16
   pad_ms: 100
   pupil_range: [100, 10000]
@@ -21,7 +22,7 @@ baseline:
 low_baselines: {min_pct: 60}
 trial_means:
   window: [500, 20000]
-  cut_before_keypress_ms: 0
+  cut_before_keypress_ms: 3000
 events:
   blink:
     window: [-200, 2000]
