@@ -53,7 +53,7 @@ DEFAULTS: Dict = {
     "trials": {"min_valid": 0.5},
     "bin": {"bin_ms": 20, "min_valid": 0.5},
     "levels": {"min_fix_ms": 80},
-    "gaze": {"method": None, "by": "eye", "slopes": "map", "time_terms": False,
+    "gaze": {"method": "steps", "by": "eye", "slopes": "map", "time_terms": False,
              "layout": None},              # layout: measured layout for "geometric" and "hybrid" (CSV file; read_layout)
     "baseline": {"window": [0, 200], "method": "subtractive", "scale": "reader_mean"},
     "low_baselines": {"min_pct": 60},
@@ -496,9 +496,12 @@ def analyse(data: PupilData, config=None) -> Result:
     if data.fixations is not None and len(data.fixations):
         steps = saccade_steps(bins, data.fixations, means=rm)
     g = cfg["gaze"]
+    if g.get("method") == "steps" and steps is None:
+        warnings.warn("analyse: gaze.method 'steps' needs fixation reports; no gaze correction applied "
+                      "(set gaze.method to null, 'regression' or 'geometric' to silence this)")
+        g = dict(g, method=None)
+        cfg = dict(cfg, gaze=g)
     if g.get("method") == "steps":
-        if steps is None:
-            raise ValueError("gaze.method 'steps' needs fixation reports")
         slopes = step_slopes(steps, by=g.get("by", "eye"), method=g.get("slopes", "map"))
         bins = correct_gaze(bins, slopes, method="steps", by=g.get("by", "eye"), means=rm)
     elif g.get("method") == "regression":
@@ -645,9 +648,10 @@ def _write_plots(res: Result, folder: str) -> dict:
         save(plot_overlays(res.bins), "check_overlays.png")
         save(plot_baselines(res.low_baselines, min_pct=res.config["low_baselines"]["min_pct"] or 0), "check_baselines.png")
         save(plot_grand_mean(res.bins, min_readers=min(20, max(1, len(res.data.readers) // 2))), "grand_mean.png")
-        kept = res.data.trials[~res.data.trials["excluded"]]
-        if "version" in kept.columns and kept["version"].notna().any():
-            save(plot_quality(kept), "check_quality.png")
+        T = res.data.trials
+        read = T[T["reason"] != "listed"]               # every trial read, including those lost to data loss
+        if "version" in read.columns and read["version"].notna().any():
+            save(plot_quality(read, min_valid=res.config["trials"]["min_valid"]), "check_quality.png")
             save(plot_gaze(res.bins), "check_gaze.png")
     except Exception as e:  # plots are checks; a failure must not lose the R files
         warnings.warn(f"run_pipeline: a check plot failed: {e}")

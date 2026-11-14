@@ -99,7 +99,8 @@ STAGES = [
         ("correct_gaze()", [
             "Removes the artifact from every bin according to where the eye was looking. It must run before "
             "baseline(), and it warns if the order is wrong.",
-            "The primary estimate uses no correction (method=None). The options are \"steps\" (with step_slopes()), "
+            "The primary estimate uses saccade steps (method=\"steps\", the default; it needs fixation reports). "
+            "The other options are no correction (method=None), "
             "\"regression\" (with regression_slopes()), \"geometric\" (needs the measured layout of eye, camera and "
             "screen) and \"hybrid\" (exploratory).",
         ]),
@@ -121,12 +122,14 @@ STAGES = [
     ("3.6", "Quality checks", [
         ("data_loss()", [
             "Per trial: the percentage of invalid samples, of samples lost to the padding and of valid samples, trial "
-            "length, and blink and saccade rates; and their summary by version. In the paper: 10.1% of samples lost; "
+            "length, and blink and saccade rates; and their summary by version. In the paper: 12.8% of samples lost; "
             "trials of 43.2 s (non-simplified) and 38.5 s (simplified).",
         ]),
         ("plot_overlays()", [
-            "Draws every trial's trace, one panel per reader, to catch spikes and gaps that averages hide. In the "
-            "paper, 26% of trials showed residual spikes.",
+            "Draws every trial's trace, one panel per reader (Figure 7A). A triangle marks each residual spike found "
+            "by find_spikes(), and each panel title gives the share of trials with a spike; no more than about 5% "
+            "should show one. spike_rate() gives the share over all trials and per version. In the paper, 26% of "
+            "trials showed spikes with blink padding alone and 1% after adding the speed filter.",
         ]),
         ("plot_baselines()", [
             "A histogram of the baselines, with a panel of log-scaled counts so that rare low baselines show. Use it "
@@ -137,12 +140,16 @@ STAGES = [
             "drawing only time points with at least 20 readers.",
         ]),
         ("plot_quality()", [
-            "Plots data loss and blink and saccade rates by version, with each reader's two values joined, to show "
-            "whether data quality differs between versions.",
+            "Histograms of the data lost per trial, one per version, with the exclusion threshold as a dashed line "
+            "(Figure 7B). One histogram further to the right, or with more trials past the threshold, means that "
+            "version lost more data.",
         ]),
         ("plot_gaze()", [
-            "Plots mean gaze position by version relative to the baseline, which shows where the versions differ in "
-            "gaze. In the paper, gaze in simplified texts lay about 80 pixels further left and 40 pixels lower.",
+            "Plots mean gaze position by version relative to the baseline (Figure 7C): small symbols are readers, "
+            "large symbols the version means. Large symbols far apart call for correct_gaze(). After correction, a "
+            "second panel shows pupil size by horizontal gaze before and after it: the fall from left to right "
+            "should shrink. In the paper, the correction halved it; gaze in "
+            "simplified texts lay about 80 pixels further left and 40 pixels lower.",
         ]),
     ]),
     ("3.7", "Modelling", [

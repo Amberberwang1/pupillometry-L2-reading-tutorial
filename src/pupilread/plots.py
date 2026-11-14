@@ -6,7 +6,7 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._utils import ok_mask, sampling_rate, sort_trials
+from ._utils import ok_mask, sampling_rate, sort_trials, window_mask
 
 LINESTYLES = ["-", (0, (4, 2)), (0, (1, 1.5)), (0, (6, 2, 1, 2))]
 
@@ -23,11 +23,66 @@ def _levels(df, by):
     return [] if by is None or by not in df.columns else sorted(df[by].dropna().unique(), key=str)
 
 
+def find_spikes(bins: pd.DataFrame, min_drop: float = 20, shoulders: Tuple[float, float] = (60, 200),
+                column: str = "pupil") -> pd.DataFrame:
+    """Residual spikes left after blink removal (stage 3.6).
+
+    A valid bin is part of a spike when its pupil size, as a percentage of the reader mean, lies more than ``min_drop``
+    points below the lower of two shoulders: the median of the valid bins ``shoulders[0]`` to ``shoulders[1]`` ms before
+    it and the median of those after it (one shoulder suffices next to a gap). Slow changes and steps leave one shoulder
+    close to the bin; only a drop that recovers within about 200 ms clears both. Returns one row per bin of ``bins``
+    (same index) with ``drop`` (points below the shoulders) and ``spike`` (True or False). The rule of thumb is that no
+    more than about 5% of trials should contain a spike (Mathôt & Vilotijević, 2023); see ``spike_rate()``.
+    """
+    import warnings
+    from numpy.lib.stride_tricks import sliding_window_view
+    from .baseline import reader_means
+    bin_ms = float((bins.attrs or {}).get("bin_ms", 20))
+    k0, k1 = int(round(shoulders[0] / bin_ms)), int(round(shoulders[1] / bin_ms))
+    ok = np.asarray(ok_mask(bins), bool)
+    means = reader_means(bins, column)
+    pct = 100 * bins[column].to_numpy(float) / bins["reader"].map(means).to_numpy(float)
+    drop = np.full(len(bins), np.nan)
+    pos = np.rint(bins["time"].to_numpy(float) / bin_ms).astype(np.int64)
+    for _, idx in bins.groupby(["reader", "trial"], sort=False).indices.items():
+        idx = idx[ok[idx]]
+        if len(idx) < 2:
+            continue
+        p = pos[idx] - pos[idx].min()
+        dense = np.full(p.max() + 1 + 2 * k1, np.nan)
+        dense[p + k1] = pct[idx]
+        win = sliding_window_view(dense, 2 * k1 + 1)[p]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            left = np.nanmedian(win[:, :k1 - k0 + 1], axis=1)
+            right = np.nanmedian(win[:, k1 + k0:], axis=1)
+        ref = np.where(np.isnan(left), right, np.where(np.isnan(right), left, np.minimum(left, right)))
+        drop[idx] = ref - pct[idx]
+    out = pd.DataFrame({"drop": drop}, index=bins.index)
+    out["spike"] = out["drop"] > min_drop
+    return out
+
+
+def spike_rate(bins: pd.DataFrame, spikes: Optional[pd.DataFrame] = None, by: Optional[str] = "version", **kw) -> pd.DataFrame:
+    """Share of trials with at least one residual spike (%), overall and per level of ``by`` (stage 3.6)."""
+    sp = find_spikes(bins, **kw) if spikes is None else spikes
+    cols = ["reader", "trial"] + ([by] if by and by in bins.columns else [])
+    per = bins[cols].join(sp["spike"]).groupby(cols)["spike"].any().reset_index()
+    rows = [{"level": "all", "trials": len(per), "pct_with_spike": 100 * per["spike"].mean()}]
+    if len(cols) == 3:
+        for lv, g in per.groupby(by):
+            rows.append({"level": lv, "trials": len(g), "pct_with_spike": 100 * g["spike"].mean()})
+    return pd.DataFrame(rows)
+
+
 def plot_overlays(bins: pd.DataFrame, column: str = "change", by: Optional[str] = "version", readers: Optional[Sequence] = None,
-                max_readers: int = 6, ncols: int = 3):
+                  max_readers: int = 6, ncols: int = 3, mark_spikes: bool = True):
     """Trial-level overlays: every trial's trace, one panel per reader, line style by ``by`` (stage 3.6).
 
     Overlays reveal residual artifacts that a summary statistic hides, such as spikes, gaps or implausible trajectories.
+    With ``mark_spikes=True`` (default), a triangle marks each spike found by ``find_spikes()``, each panel title gives
+    the share of that reader's trials with a spike, and ``fig.spike_rate`` holds the share over all trials in ``bins``
+    (rule of thumb: no more than about 5%).
     """
     _, plt = _plt()
     rd = list(readers) if readers is not None else list(pd.unique(bins["reader"]))[:max_readers]
@@ -35,20 +90,37 @@ def plot_overlays(bins: pd.DataFrame, column: str = "change", by: Optional[str] 
     fig, axs = plt.subplots(nrows, ncols, figsize=(2.4 * ncols, 1.8 * nrows), squeeze=False, sharex=True)
     lv = _levels(bins, by)
     ok = ok_mask(bins)
+    sp = find_spikes(bins) if mark_spikes and "pupil" in bins.columns else None
     for ax, r in zip(axs.ravel(), rd):
-        b = bins[ok & (bins["reader"] == r)]
+        sel = ok & (bins["reader"] == r)
+        b = bins[sel]
         for (_, tr), g in b.groupby(["reader", "trial"]):
+            g = g.sort_values("time")
+            y = g[column].to_numpy(float)
+            gap = np.r_[False, np.diff(g["time"].to_numpy(float)) > 1.5 * float((bins.attrs or {}).get("bin_ms", 20))]
             ls = LINESTYLES[lv.index(g[by].iat[0]) % 4] if lv else "-"
-            ax.plot(g["time"] / 1000, g[column], color="k", lw=0.4, alpha=0.6, ls=ls)
-        ax.set_title(f"Reader {r}", fontsize=7, loc="left")
+            ax.plot(g["time"] / 1000, np.where(gap, np.nan, y), color="k", lw=0.4, alpha=0.6, ls=ls)
+        title = f"Reader {r}"
+        if sp is not None:
+            s = b.join(sp["spike"])
+            ev = s[s["spike"]].sort_values(["trial", "time"])
+            first = (ev.groupby("trial")["time"].diff().fillna(np.inf) > 100).to_numpy()
+            ev = ev[first]
+            ax.scatter(ev["time"] / 1000, ev[column] - 4, marker="^", s=8, color="k", lw=0, zorder=5)
+            n_tr = b["trial"].nunique()
+            title += f": spikes in {100 * s.groupby('trial')['spike'].any().mean():.0f}% of {n_tr} trials"
+        ax.set_title(title, fontsize=7, loc="left")
         ax.axhline(0, color="k", lw=0.3)
     for ax in axs.ravel()[len(rd):]:
         ax.set_visible(False)
     for ax in axs[-1]:
         ax.set_xlabel("Time from text onset (s)")
     for ax in axs[:, 0]:
-        ax.set_ylabel(column)
+        ax.set_ylabel("Pupil change\n(% of reader mean)" if column == "change" else column)
     fig.tight_layout()
+    if sp is not None:
+        fig.spikes = sp
+        fig.spike_rate = spike_rate(bins, sp, by=by)
     return fig
 
 
@@ -277,14 +349,35 @@ def plot_grand_mean(bins: pd.DataFrame, column: str = "change", by: Optional[str
     return fig
 
 
-def plot_quality(trials: pd.DataFrame, by: str = "version",
-                 measures: Sequence[str] = ("pct_valid", "pct_invalid", "pct_blink_pad", "blink_rate", "saccade_rate")):
-    """Data loss and blink and saccade rates by version: reader means joined across versions (stage 3.6)."""
+def plot_quality(trials: pd.DataFrame, by: str = "version", min_valid: float = 0.5, step: float = 5,
+                 measures: Sequence[str] = ()):
+    """Data lost per trial, one histogram per version, with the exclusion threshold as a dashed line (stage 3.6).
+
+    ``trials`` is the per-trial table of ``data_loss()``. Look for one histogram lying further to the right, or with more
+    trials past the threshold (``1 - min_valid``): that version lost more data. ``measures`` adds panels of reader means
+    joined across versions for other columns, such as ``"blink_rate"`` or ``"saccade_rate"``.
+    """
     _, plt = _plt()
     ms = [m for m in measures if m in trials.columns]
-    fig, axs = plt.subplots(1, len(ms), figsize=(1.6 * len(ms), 2.2), squeeze=False)
+    fig, axs = plt.subplots(1, 1 + len(ms), figsize=(2.6 + 1.6 * len(ms), 2.2), squeeze=False)
     lv = _levels(trials, by)
-    for ax, m in zip(axs[0], ms):
+    ax = axs[0, 0]
+    lost = 100 - trials["pct_valid"].to_numpy(float)
+    edges = np.arange(0, 100 + step, step)
+    styles = [dict(histtype="stepfilled", color="#cfcfcf", lw=0), dict(histtype="step", color="k", lw=1.0),
+              dict(histtype="step", color="k", lw=1.0, ls=(0, (3, 2))), dict(histtype="step", color="#777777", lw=1.0)]
+    for i, level in enumerate(lv or [None]):
+        x = lost if level is None else lost[(trials[by] == level).to_numpy()]
+        ax.hist(x, bins=edges, label=None if level is None else str(level), **styles[i % 4])
+    thr = 100 * (1 - min_valid)
+    ax.axvline(thr, color="k", lw=0.8, ls=(0, (3, 2)))
+    ax.text(thr + 2, ax.get_ylim()[1] * 0.95, f"excluded\n(> {thr:g}% lost)", fontsize=6.5, va="top")
+    ax.set_xlim(0, 100)
+    ax.set_xlabel("Data lost per trial (%)")
+    ax.set_ylabel("Trials")
+    if lv:
+        ax.legend(fontsize=6.5, loc="upper right", bbox_to_anchor=(1.0, 0.72))
+    for ax, m in zip(axs[0, 1:], ms):
         pr = trials.groupby(["reader", by])[m].mean().unstack(by)[lv]
         for _, row in pr.iterrows():
             ax.plot(range(len(lv)), row.values, color="#9a9a9a", lw=0.5, marker="o", ms=2)
@@ -297,31 +390,71 @@ def plot_quality(trials: pd.DataFrame, by: str = "version",
 
 
 def plot_gaze(bins: pd.DataFrame, by: str = "version", relative_to_baseline: bool = True, window=(500, 20000),
-              baseline_window=(0, 200)):
-    """Mean gaze position by version (stage 3.6): reader means of horizontal and vertical gaze, optionally relative to
-    the gaze position in the baseline window, which shows where versions differ in the gaze artifact (Section 3.4)."""
+              baseline_window=(0, 200), cut_before_keypress_ms: float = 3000, section_px: float = 100):
+    """Gaze checks (stage 3.6, Figure 7C).
+
+    Left panel: mean gaze position by version. Small symbols are reader means of horizontal and vertical gaze in the
+    analysis window, optionally relative to the gaze position in the baseline window; large symbols are the version
+    means. Large symbols far apart mean readers looked at different parts of the screen in the two versions; then apply
+    ``correct_gaze()`` and report the result with and without it (Section 3.4).
+
+    Right panel (when ``bins`` holds ``pupil_corrected``, i.e. after ``correct_gaze()``): mean pupil size, in % of the
+    reader mean, in ``section_px`` sections of horizontal gaze, before and after the correction. Before correction the
+    line falls from left to right (the pupil looks smaller away from the camera); a correction that works makes it
+    flatter. ``fig.gaze_slope`` holds the two lines.
+    """
+    from .baseline import reader_means
     _, plt = _plt()
     ok = ok_mask(bins)
     b = bins[ok].copy()
     key = ["reader", "trial"]
-    w = b[(b["time"] >= window[0]) & (b["time"] < window[1])].groupby(key)[["gaze_x", "gaze_y"]].mean()
+    cut = cut_before_keypress_ms if "duration" in b.columns else 0
+    inwin = window_mask(b, window, cut, "plot_gaze")
+    w = b[inwin].groupby(key)[["gaze_x", "gaze_y"]].mean()
     if relative_to_baseline:
         bb = b[(b["time"] >= baseline_window[0]) & (b["time"] < baseline_window[1])].groupby(key)[["gaze_x", "gaze_y"]].mean()
         w = w - bb
     info = bins.drop_duplicates(key).set_index(key)[[by]]
     w = w.join(info).reset_index()
     pr = w.groupby(["reader", by])[["gaze_x", "gaze_y"]].mean().reset_index()
-    fig, ax = plt.subplots(figsize=(3.0, 2.6))
+    two = "pupil_corrected" in b.columns
+    fig, axs = plt.subplots(1, 2 if two else 1, figsize=(6.0 if two else 3.0, 2.6), squeeze=False)
+    ax = axs[0, 0]
     lv = _levels(pr, by)
-    marks = ["o", "s", "^", "D"]
+    marks = ["s", "o", "^", "D"]
     for i, level in enumerate(lv):
         z = pr[pr[by] == level]
-        ax.scatter(z["gaze_x"], z["gaze_y"], s=8, facecolor="none" if i else "k", edgecolor="k", marker=marks[i % 4],
-                   lw=0.6, label=str(level))
+        ax.scatter(z["gaze_x"], z["gaze_y"], s=8, facecolor="k" if i == 1 else "none", edgecolor="#8a8a8a",
+                   marker=marks[i % 4], lw=0.5, alpha=0.8)
+    for i, level in enumerate(lv):
+        z = pr[pr[by] == level]
+        ax.scatter([z["gaze_x"].mean()], [z["gaze_y"].mean()], s=60, facecolor="k" if i == 1 else "white", edgecolor="k",
+                   marker=marks[i % 4], lw=1.0, zorder=5, label=f"{level} (mean)")
     ax.invert_yaxis()
     ax.set_xlabel("Horizontal gaze" + (" relative to baseline" if relative_to_baseline else "") + " (px)")
     ax.set_ylabel("Vertical gaze (px)")
     ax.legend(fontsize=7)
-    fig.tight_layout()
     fig.gaze_table = pr
+    if two:
+        ax = axs[0, 1]
+        m = reader_means(bins)
+        g = b[np.isfinite(b["gaze_x"].to_numpy(float))].copy()
+        g["section"] = (g["gaze_x"] // section_px) * section_px + section_px / 2
+        rows = {}
+        for col, lab in (("pupil", "Before correction"), ("pupil_corrected", "After correction")):
+            g["_p"] = 100 * g[col] / g["reader"].map(m)
+            t = g.groupby(["reader", "section"])["_p"].mean().unstack("section")
+            t = t.sub(t.mean(axis=1), axis=0)              # each reader's own level removed
+            rows[lab] = t.mean()
+        sl = pd.DataFrame(rows)
+        n = g.groupby("section").size()
+        sl = sl[n.reindex(sl.index).fillna(0) >= 0.005 * n.sum()]   # drop sparse sections at the screen edges
+        ax.plot(sl.index, sl["Before correction"], color="k", lw=1.0, ls=(0, (3, 2)), label="Before correction")
+        ax.plot(sl.index, sl["After correction"], color="k", lw=1.4, label="After correction")
+        ax.axhline(0, color="#9a9a9a", lw=0.5)
+        ax.set_xlabel("Horizontal gaze (px)")
+        ax.set_ylabel("Pupil size\n(% of reader mean, centred)")
+        ax.legend(fontsize=7)
+        fig.gaze_slope = sl
+    fig.tight_layout()
     return fig

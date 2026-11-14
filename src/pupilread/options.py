@@ -53,6 +53,7 @@ PAPER_OPTIONS = {
     "random_intercepts": dict(label="Random intercepts only", random="intercepts", section="3.7", table="3"),
     "control_predictors": dict(label="Control predictors", controls=list(CONTROLS),
                                optional_controls=list(OPTIONAL_CONTROLS), section="3.7", table="3"),
+    "no_gaze_correction": dict(label="No gaze correction", gaze=None, section="3.4", table="3"),
     "gaze_regression": dict(label="Regression slopes", gaze=dict(method="regression"), section="3.4", table="3"),
     "gaze_steps_eye": dict(label="Saccade steps, error map per eye", gaze=dict(method="steps", by="eye", slopes="map"),
                            section="3.4", table="3"),
@@ -113,8 +114,9 @@ def _z(v: pd.Series, ref: Optional[pd.Series] = None) -> pd.Series:
 class _Context:
     """Shared intermediate results (reader means, saccade steps) for the options of one table."""
 
-    def __init__(self, data, base_window, window, min_pct, steps, display=None, layout=None, cut=0):
+    def __init__(self, data, base_window, window, min_pct, steps, display=None, layout=None, cut=0, gaze=None):
         self.data = data
+        self.gaze = dict(gaze) if gaze and gaze.get("method") else None     # the primary gaze correction, if any
         self.display = dict(display or {})
         self.layout = layout
         self.bins = data.bins
@@ -158,6 +160,33 @@ class _Context:
         return self.bins
 
 
+def _apply_gaze(ctx: "_Context", bins: pd.DataFrame, means: pd.Series, g: Mapping, name: str):
+    """Gaze-position correction of one option (or of the primary analysis): corrected bins, reader means, column."""
+    method = g.get("method")
+    if method == "regression":
+        sl = regression_slopes(bins, window=ctx.base_window, min_baseline_pct=ctx.min_pct or 0,
+                               time_terms=g.get("time_terms", False), means=means)
+        bins = correct_gaze(bins, sl, method="regression")
+    elif method == "steps":
+        by = g.get("by", "eye")
+        sl = step_slopes(ctx.steps, by=by, method=g.get("slopes", "map"))
+        bins = correct_gaze(bins, sl, method="steps", by=by, means=means)
+    elif method in ("geometric", "hybrid"):
+        layout = g.get("layout") or ctx.layout
+        if layout is None:
+            raise ValueError(f"option {name!r} needs a measured layout (gaze.layout in the config)")
+        if method == "hybrid":
+            by = g.get("by", "eye")
+            sc = geometric_scale(ctx.steps, layout, by=by)
+            bins = correct_gaze(bins, sc, method="hybrid", by=by, layout=layout)
+        else:
+            bins = correct_gaze(bins, method="geometric", layout=layout)
+        means = reader_means(bins, column="pupil_corrected")
+    else:
+        raise ValueError(f"options_table: unknown gaze method {method!r} in option {name!r}")
+    return bins, means, "pupil_corrected"
+
+
 def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
     """The trial measure of one option for every trial (before the option's subset is applied)."""
     bins = ctx.bins_for(name, o)
@@ -176,35 +205,13 @@ def _measure(ctx: _Context, name: str, o: Mapping) -> pd.Series:
     if o.get("diameter"):
         bins = to_diameter(bins)
         means = reader_means(bins)
-    g = o.get("gaze")
-    if g:
-        method = g.get("method")
-        if method == "regression":
-            sl = regression_slopes(bins, window=ctx.base_window, min_baseline_pct=ctx.min_pct or 0,
-                                   time_terms=g.get("time_terms", False), means=means)
-            bins = correct_gaze(bins, sl, method="regression")
-        elif method == "steps":
-            by = g.get("by", "eye")
-            sl = step_slopes(ctx.steps, by=by, method=g.get("slopes", "map"))
-            bins = correct_gaze(bins, sl, method="steps", by=by, means=means)
-        elif method in ("geometric", "hybrid"):
-            layout = g.get("layout", ctx.layout)
-            if layout is None:
-                raise ValueError(f"option {name!r} needs a measured layout (gaze.layout in the config)")
-            if method == "hybrid":
-                by = g.get("by", "eye")
-                sc = geometric_scale(ctx.steps, layout, by=by)
-                bins = correct_gaze(bins, sc, method="hybrid", by=by, layout=layout)
-            else:
-                bins = correct_gaze(bins, method="geometric", layout=layout)
-            means = reader_means(bins, column="pupil_corrected")
-        else:
-            raise ValueError(f"options_table: unknown gaze method {method!r} in option {name!r}")
-        column = "pupil_corrected"
     if o.get("interpolated"):
         if "pupil_interp" not in bins.columns:
             raise ValueError("options_table: the 'interpolated' option needs pupil_interp in the bins (run interpolate())")
-        column = "pupil_interp"
+        bins = bins.assign(pupil=bins["pupil_interp"])
+    g = o["gaze"] if "gaze" in o else ctx.gaze      # an option without "gaze" keeps the primary correction
+    if g and g.get("method"):
+        bins, means, column = _apply_gaze(ctx, bins, means, g, name)
     b = baseline(bins, column=column, means=means, **bkw)
     if o.get("controls"):
         if any(c not in b.columns for c in o["controls"]):
@@ -288,8 +295,10 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     min_pct = cfg["low_baselines"]["min_pct"]
     cut = cfg["trial_means"].get("cut_before_keypress_ms", 0) or 0
     ctx = _Context(data, base_window, window, min_pct, steps, display=cfg.get("display"),
-                   layout=(cfg.get("gaze") or {}).get("layout"), cut=cut)
-    b0 = baseline(ctx.bins, window=base_window, means=ctx.means)
+                   layout=(cfg.get("gaze") or {}).get("layout"), cut=cut, gaze=cfg.get("gaze"))
+    pb, pm, pc = (_apply_gaze(ctx, ctx.bins, ctx.means, ctx.gaze, "primary") if ctx.gaze
+                  else (ctx.bins, ctx.means, None))
+    b0 = baseline(pb, window=base_window, means=pm, column=pc)
     T = low_baselines(b0, min_pct=min_pct if min_pct is not None else -np.inf)
     T = T[np.isfinite(T["baseline_pct"])].drop(columns=["low", "reason"]).reset_index(drop=True)
     loss = getattr(data, "trials", None)
@@ -309,7 +318,7 @@ def options_table(samples, options: Optional[Mapping] = None, fixations: Optiona
     key = pd.MultiIndex.from_arrays([T["reader"].astype(str), T["trial"].astype(str)])
     values = {}
     for name, o in options.items():
-        g = o.get("gaze") or {}
+        g = (o["gaze"] if "gaze" in o else ctx.gaze) or {}
         needs_layout = g.get("method") in ("geometric", "hybrid") or "cos_theta" in (o.get("controls") or [])
         if needs_layout and g.get("layout", ctx.layout) is None:
             continue                                   # no measured layout: the options of the geometric model are left out
